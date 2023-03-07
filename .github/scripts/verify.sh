@@ -2,6 +2,8 @@
 
 WORKSPACE_DIR="/mnt"
 
+# Clone ARM TTK repository
+
 
 # Check azuredeploy files
 echo "Checking azuredeploy.json files"
