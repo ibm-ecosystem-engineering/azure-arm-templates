@@ -236,7 +236,7 @@
         }
     ],
     "outputs": {
-        "arcName": {
+        "acrName": {
             "type": "string",
             "value": "[parameters('registryName')]"
         },
