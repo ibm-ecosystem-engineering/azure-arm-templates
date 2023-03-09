@@ -330,6 +330,10 @@
         "clusterCredentials": {
             "type": "object",
             "value": "[listCredentials(resourceId('Microsoft.RedHatOpenShift/OpenShiftClusters', variables('clusterName')), '2022-04-01')]"
+        },
+        "clusterName": {
+            "type": "string",
+            "value": "[variables('clusterName')]"
         }
     }
 }
