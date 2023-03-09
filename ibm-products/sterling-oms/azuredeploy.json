@@ -149,7 +149,7 @@
                 },
                 "storageAccountSettings": {
                     "storageAccountName": "[parameters('storageAccountName')]",
-                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value]"
+                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
                 },
                 "azCliVersion": "2.9.1",  
                 "environmentVariables": [
@@ -217,10 +217,10 @@
         },
         {
             "type": "Microsoft.Storage/storageAccounts",
-            "apiVersion": "2019-06-01",
+            "apiVersion": "2022-06-01",
             "condition": "[parameters('createStorageAccount')]",
             "name": "[parameters('storageAccountName')]",
-            "location": "[resourceGroup().location]",
+            "location": "[parameters('location')]",
             "sku": {
                 "name": "Standard_LRS",
                 "tier": "Standard"

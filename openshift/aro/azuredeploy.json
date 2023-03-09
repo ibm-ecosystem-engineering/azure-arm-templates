@@ -135,6 +135,7 @@
             "type": "int",
             "defaultValue": 3,
             "minValue": 3,
+            "maxValue": 2000,
             "metadata": {
                 "description": "Number of compute nodes to deploy"
             }
@@ -157,6 +158,7 @@
             "type": "int",
             "defaultValue": 128,
             "minValue": 128,
+            "maxValue": 32767,
             "metadata": {
                 "description": "Size of system disk on each worker node"
             }
@@ -327,10 +329,6 @@
         }
     ],
     "outputs": {
-        "clusterCredentials": {
-            "type": "object",
-            "value": "[listCredentials(resourceId('Microsoft.RedHatOpenShift/OpenShiftClusters', variables('clusterName')), '2022-04-01')]"
-        },
         "clusterName": {
             "type": "string",
             "value": "[variables('clusterName')]"

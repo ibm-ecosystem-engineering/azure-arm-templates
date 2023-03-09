@@ -86,11 +86,17 @@
             "metadata": {
                 "description": "CIDR for the subnet if creating"
             }
+        },
+        "storageSuffix": {
+            "type": "string",
+            "defaultValue": "core.windows.net",
+            "metadata": {
+                "description": "URI for storage"
+            }
         }
     },
     "variables": {
-        "storageSuffix": "core.windows.net",
-        "storageDNSZoneName": "[concat('privatelink.file.',variables('storageSuffix'))]",
+        "storageDNSZoneName": "[concat('privatelink.file.',parameters('storageSuffix'))]",
         "fileStorageAccountPrivateEndpointGroupName": "file"
     },
     "resources": [
