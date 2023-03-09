@@ -6,7 +6,7 @@ on:
 
 jobs:
   Linting:
-    runs-on: mcr.microsoft.com/powershell:lts-7.2-alpine-3.14
+    runs-on: ubuntu:latest
 
     strategy:
       matrix:
