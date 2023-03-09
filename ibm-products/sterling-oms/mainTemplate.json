@@ -447,7 +447,7 @@
                         "value": "[parameters('rpObjectId')]"
                     },
                     "pullSecret": {
-                        "secureValue": "[parameters('pullSecret')]"
+                        "value": "[parameters('pullSecret')]"
                     },
                     "workerSize": {
                         "value": "[parameters('workerSize')]"
