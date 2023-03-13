@@ -47,7 +47,7 @@ cat $ACTIVEMQ_HOME/conf/jetty-realm.properties | sed "s/admin: admin, admin/admi
 sudo cp $TMP_DIR/jetty-realm.properties $ACTIVEMQ_HOME/conf/jetty-realm.properties
 
 # Configure initial queue
-wget -P $TMP_DIR https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/$BRANCH/utilities/activemq/activemq-vm/activemq.xml
+wget -P $TMP_DIR https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/$BRANCH/utilities/activemq/activemq-vm/files/activemq.xml
 sudo cp $TMP_DIR/activemq.xml $ACTIVEMQ_HOME/conf/activemq.xml
 
 # Configure JNDI access
