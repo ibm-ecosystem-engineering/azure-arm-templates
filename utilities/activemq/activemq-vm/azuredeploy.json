@@ -59,13 +59,6 @@
                 "description": "CIDR for the developer subnet"
             }
         },
-        "ngwName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), '-ngw')]",
-            "metadata": {
-                "description": "Name of the NAT Gateway"
-            }
-        },
         "adminUserName": {
             "type": "string",
             "defaultValue": "azureuser",
@@ -99,6 +92,19 @@
                         "sourcePortRange": "*",
                         "destinationAddressPrefix": "*",
                         "destinationPortRange": "22"
+                    }
+                },
+                {
+                    "name": "MQADMIN",
+                    "properties": {
+                        "priority": 310,
+                        "protocol": "TCP",
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "sourceAddressPrefix": "*",
+                        "sourcePortRange": "*",
+                        "destinationAddressPrefix": "*",
+                        "destinationPortRange": "8161"
                     }
                 }
             ]
@@ -143,18 +149,11 @@
                 "20.04-LTS"
             ]
         },
-        "publicIP": {
-            "type": "bool",
-            "defaultValue": true,
-            "metadata": {
-                "description": "Flag to indicate whether a public IP should be created."
-            }
-        },
         "branch": {
             "type": "string",
             "defaultValue": "initial-version",
             "metadata": {
-                "description": "GitHub branch for URI"
+                "description": "GitHub branch for script URI"
             }
         },
         "scriptURI": {
@@ -177,6 +176,7 @@
             "condition": "[parameters('createVNet')]",
             "comments": "Create a new virtual network if requested.",
             "name": "[parameters('vnetName')]",
+            "location": "[parameters('location')]",
             "properties": {
                 "addressSpace": {
                     "addressPrefixes": [
@@ -191,10 +191,7 @@
             "condition": "[parameters('createSubnet')]",
             "name": "[concat(parameters('vnetName'),'/',parameters('subnetName'))]",
             "properties": {
-                "addressPrefix": "[parameters('subnetCIDR')]",
-                "natGateway": {
-                    "id": "[resourceId('Microsoft.Network/natGateways', parameters('ngwName'))]"
-                }
+                "addressPrefix": "[parameters('subnetCIDR')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"

@@ -1,6 +1,6 @@
 export VERSION="5.17.4"
 export ACTIVEMQ_HOME="/opt/activemq"
-export PASSWORD="xyzzy"
+export PASSWORD=$1
 export TMP_DIR="/tmp"
 export BRANCH="initial-version"
 
