@@ -162,6 +162,13 @@
             "metadata": {
                 "description": "URI for the scripts to run post virtual machine creation"
             }
+        },
+        "activemqVersion": {
+            "type": "string",
+            "defaultValue": "5.17.4",
+            "metadata": {
+                "description": "ActiveMQ version to be installed."
+            }
         }
     },
     "variables": {
@@ -300,7 +307,7 @@
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'deploy-activemq.sh')]"
                     ],
-                    "commandToExecute": "[concat('sh deploy-activemq.sh ',parameters('mqPassword'))]"
+                    "commandToExecute": "[concat('sh deploy-activemq.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
                 }
             }
         }

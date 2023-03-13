@@ -1,14 +1,32 @@
-export VERSION="5.17.4"
+#!/bin/bash
+
+# Exit if no password provided
+if [[ -z $1 ]]; then
+    echo "ERROR: Missing argument"
+    echo "Usage: $0 PASSWORD VERSION"
+    echo "   where "
+    echo "         PASSWORD is the MQ admin password to be set"
+    echo "         VERSION is the version fo ActiveMQ to be installed"
+    exit 1;
+fi
+
+# Set version if supplied
+if [[ -z $2 ]]; then
+    export VERSION="5.17.4"
+else
+    export VERSION=$2
+fi
+
 export ACTIVEMQ_HOME="/opt/activemq"
 export PASSWORD=$1
 export TMP_DIR="/tmp"
 export BRANCH="initial-version"
 
-# Update and install required CLIs
-sudo apt-get update && apt-get install -y wget
+# Update software repo
+sudo apt-get update
 
-# Install openjdk
-sudo apt-get install -y openjdk-11-jre
+# Install openjdk and wget
+sudo apt-get install -y openjdk-11-jre wget
 
 # Install Apache ActiveMQ
 sudo mkdir $ACTIVEMQ_HOME
