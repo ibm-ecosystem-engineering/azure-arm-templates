@@ -12,7 +12,7 @@ fi
 
 # Set version if supplied
 if [[ -z $2 ]]; then
-    export VERSION="5.17.4"
+    export VERSION="5.16.3"
 else
     export VERSION=$2
 fi

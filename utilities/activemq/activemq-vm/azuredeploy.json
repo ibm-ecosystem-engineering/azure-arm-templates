@@ -191,7 +191,7 @@
         },
         "activemqVersion": {
             "type": "string",
-            "defaultValue": "5.17.4",
+            "defaultValue": "5.16.3",
             "metadata": {
                 "description": "ActiveMQ version to be installed."
             }
