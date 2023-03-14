@@ -368,7 +368,7 @@
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'activemq-config.sh')]"
                     ],
-                    "commandToExecute": "[concat('sh activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
+                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
                 }
             }
         }
