@@ -7,9 +7,9 @@ An admin user and password need to be provided. It is recommended that this VM i
 ## Tools
 
 The following tools are installed:
-    - docker
-    - helm
-    - openshift client (oc)
+- docker
+- helm
+- openshift client (oc)
 
 ## Networking
 

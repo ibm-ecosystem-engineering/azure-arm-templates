@@ -16,14 +16,15 @@ if [[ -z $SUBNET_PRIVATE_ENDPOINT_NAME ]]; then ENV_VAR_NOT_SET="SUBNET_PRIVATE_
 if [[ -z $ADMIN_PASSWORD ]]; then ENV_VAR_NOT_SET="ADMIN_PASSWORD"; fi
 if [[ -z $WHICH_OMS ]]; then ENV_VAR_NOT_SET="WHICH_OMS"; fi
 if [[ -z $ACR_NAME ]]; then ENV_VAR_NOT_SET="ACR_NAME"; fi
+if [[ -z $STORAGE_ACCOUNT_NAME ]]; then ENV_VAR_NOT_SET="STORAGE_ACCOUNT_NAME"; fi
+if [[ -z $FILE_TYPE ]]; then ENV_VAR_NOT_SET="FILE_TYPE"; fi
+if [[ -z $SC_NAME ]]; then ENV_VAR_NOT_SET="SC_NAME"; fi
+if [[ -z $IBM_ENTITLEMENT_KEY ]]; then ENV_VAR_NOT_SET="IBM_ENTITLEMENT_KEY"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
     echo "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
     exit 1
 fi
-
-export LOCATION=$(az group show --resource-group $RESOURCE_GROUP --query location -o tsv)
-export RESOURCE_GROUP_NAME=$RESOURCE_GROUP
 
 # Setup workspace
 WORKSPACE_DIR="/workspace"
@@ -127,52 +128,48 @@ fi
 
 ######
 # Install and configure Azure Files CSI Drivers and Storage Classes
-echo "==== START AZURE FILES CONFIGURATION ===="
+echo "Creating Azure files storage"
 
-# Below not required as already setup with ARO
-# curl -sLo ${TMP_DIR}/azure.json https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/azure-file-storage/azure.json
-# envsubst < ${TMP_DIR}/azure.json > ${WORKSPACE_DIR}/azure-updated.json
-# export AZURE_CLOUD_SECRET=$(cat ${WORKSPACE_DIR}/azure-updated.json | base64 | awk '{printf $0}' ; echo)
-# curl -sLo ${TMP_DIR}/azure-cloud-provider.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/azure-file-storage/azure-cloud-provider.yaml
-# envsubst < ${TMP_DIR}/azure-cloud-provider.yaml > ${WORKSPACE_DIR}/azure-cloud-provider-updated.yaml
-# oc apply -f ${WORKSPACE_DIR}/azure-cloud-provider-updated.yaml
+export LOCATION=$(az group show --resource-group $RESOURCE_GROUP --query location -o tsv)
+export RESOURCE_GROUP_NAME=$RESOURCE_GROUP
 
-
-# Grant access
-${BIN_DIR}/oc adm policy add-scc-to-user privileged system:serviceaccount:kube-system:csi-azurefile-node-sa
-
-# Install CSI Driver
-if [[ -z $(${BIN_DIR}/oc get configmaps -n kube-system | grep azure-cred-file) ]]; then
-    echo "Installing CSI driver for Azure fileshares"
-    ${BIN_DIR}/oc create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" -n kube-system
-    export DRIVER_VERSION="v1.18.0"
-    echo "Driver version ${DRIVER_VERSION}"
-    curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/$DRIVER_VERSION/deploy/install-driver.sh | bash -s $DRIVER_VERSION --
+#####
+# Set ARO cluster permissions
+if [[ $(${BIN_DIR}/oc get clusterrole | grep azure-secret-reader) ]]; then
+    echo "Using existing cluster role"
 else
-    echo "Using existing CSI driver for Azure fileshares"
+    oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets
+    oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder
 fi
 
+#####
+# Create storage class
+cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: $SC_NAME
+provisioner: kubernetes.io/azure-file
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+  - noperm
+parameters:
+  location: $LOCATION
+  secretNamespace: kube-system
+  skuName: $FILE_TYPE
+  storageAccount: $STORAGE_ACCOUNT_NAME
+  resourceGroup: $RESOURCE_GROUP
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+EOF
 
-# Configure standard file storage
-if [[ -z $(${BIN_DIR}/oc get sc | grep azurefiles-standard) ]]; then
-    curl -sLo ${TMP_DIR}/azurefiles-standard.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/azure-file-storage/azurefiles-standard.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/azurefiles-standard.yaml > ${WORKSPACE_DIR}/azurefiles-standard-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/azurefiles-standard-updated.yaml
-else
-    echo "Using existing storage class for Azure standard files"
-fi
-
-# Configure premium file storage
-if [[ -z $(${BIN_DIR}/oc get sc | grep azurefiles-premium) ]]; then
-    curl -sLo ${TMP_DIR}/azurefiles-premium.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/azure-file-storage/azurefiles-premium.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/azurefiles-premium.yaml > ${WORKSPACE_DIR}/azurefiles-premium-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/azurefiles-premium-updated.yaml
-else
-    echo "Using existing storage class for Azure premium files"
-fi
-
-# Deploy volume binder
-${BIN_DIR}/oc apply -f https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/azure-file-storage/persistent-volume-binder.yaml
+oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 
 
 ######
@@ -184,28 +181,57 @@ export TLSSTOREPW="$ADMIN_PASSWORD"
 export TRUSTSTOREPW="$ADMIN_PASSWORD"
 export KEYSTOREPW="$ADMIN_PASSWORD"
 
-if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
-    echo "Creating PVC for OMS"
-    curl -sLo ${TMP_DIR}/oms-pvc.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/oms/oms-pvc.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/oms-pvc.yaml > ${WORKSPACE_DIR}/oms-pvc-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-pvc-updated.yaml
-else
-    echo "PVC for OMS already exists"
-fi
-
 if [[ -z $(${BIN_DIR}/oc get rolebindings -n $OMS_NAMESPACE | grep oms-rolebinding) ]]; then
     echo "Creating OMS RBAC"
-    curl -sLo ${TMP_DIR}/oms-rbac.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/oms/oms-rbac.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/oms-rbac.yaml > ${WORKSPACE_DIR}/oms-rbac-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac-updated.yaml
+cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: oms-role
+  namespace: $OMS_NAMESPACE
+rules:
+  - apiGroups: ['']
+    resources: ['secrets']
+    verbs: ['get', 'watch', 'list', 'create', 'delete', 'patch', 'update']
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: oms-rolebinding
+  namespace: $OMS_NAMESPACE
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: $OMS_NAMESPACE
+roleRef:
+  kind: Role
+  name: oms-role
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml
 else
     echo "OMS RBAC already exists"
 fi
 
 if [[ -z $(${BIN_DIR}/oc get secrets -n $OMS_NAMESPACE | grep oms-secret) ]]; then
-    curl -sLo ${TMP_DIR}/oms-secret.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/oms/oms-secret.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/oms-secret.yaml > ${WORKSPACE_DIR}/oms-secret-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret-updated.yaml
+cat << EOF >> ${WORKSPACE_DIR}/oms-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+   name: oms-secret
+   namespace: $OMS_NAMESPACE
+type: Opaque
+stringData:
+  consoleAdminPassword: $CONSOLEADMINPW
+  consoleNonAdminPassword: $CONSOLENONADMINPW
+  dbPassword: $DBPASSWORD
+  tlskeystorepassword: $TLSSTOREPW
+  trustStorePassword: $TRUSTSTOREPW
+  keyStorePassword: $KEYSTOREPW
+EOF
+    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml
 else
     echo "OMS Secret already exists"
 fi
@@ -215,12 +241,25 @@ if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg
     echo "Creating ACR Login Secret"
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
-    curl -sLo ${TMP_DIR}/oms-pullsecret.json https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/oms/oms-pullsecret.json
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/oms-pullsecret.json > ${WORKSPACE_DIR}/oms-pullsecret-updated.json
-    ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret-updated.json --type=kubernetes.io/dockercfg 
+cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
+{
+    "auths":{
+        "$ACR_LOGIN_SERVER":{
+            "auth":"$ACR_PASSWORD"
+        }
+    }
+}
+EOF
+
+    ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
 else
     echo "ACR login secret already created on cluster"
 fi
+
+
+#######
+# Create entitlement key secret for image pull
+oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
 
 ########
 # Install OMS Operator
@@ -239,20 +278,78 @@ if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; the
     echo "Installing OMS Operator"
     echo "Name        : $OPERATOR_NAME"
     echo "Operator CSV: $OPERATOR_CSV"
-    curl -sLo ${TMP_DIR}/install-oms-operator.yaml https://raw.githubusercontent.com/Azure/sterling/$BRANCH_NAME/config/operators/install-oms-operator.yaml
-    ${BIN_DIR}/envsubst < ${TMP_DIR}/install-oms-operator.yaml > ${WORKSPACE_DIR}/install-oms-operator-updated.yaml
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator-updated.yaml
+cat << EOF >> ${WORKSPACE_DIR}/install-oms-operator.yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: ibm-sterling-oms
+  namespace: openshift-marketplace
+spec:
+  displayName: IBM Sterling OMS
+  image: $OMS_VERSION
+  publisher: IBM
+  sourceType: grpc
+  updateStrategy:
+    registryPoll:
+      interval: 10m0s
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: oms-operator
+  namespace: $OMS_NAMESPACE
+spec:
+  channel: "v1.0.1"
+  installPlanApproval: Automatic
+  name: $OPERATOR_NAME
+  source: ibm-sterling-oms
+  sourceNamespace: openshift-marketplace
+  startingCSV: $OPERATOR_CSV
+EOF
+    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml
 else
     echo "IBM OMS Operator already installed"
 fi
 
-
-#######
-# Create entitlement key secret for image pull
-
 #######
 # Create OMS Persistent Volume
+if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
+    echo "Creating PVC for OMS"
+cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-file.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: $SC_NAME
+provisioner: kubernetes.io/azure-file
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+  - noperm
+parameters:
+  location: $LOCATION
+  secretNamespace: kube-system
+  skuName: $FILE_TYPE
+  storageAccount: $STORAGE_ACCOUNT_NAME
+  resourceGroup: $RESOURCE_GROUP
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+EOF
+
+    oc create -f ${WORKSPACE_DIR}/azure-storageclass-file.yaml
+else
+    echo "PVC for OMS already exists"
+fi
 
 
 #######
-# Deploy OMS
+# Create JMS Config Map
+
+
+#######
+# Create OMSEnvironment
+

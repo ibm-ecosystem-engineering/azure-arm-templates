@@ -6,11 +6,11 @@ This guide uses the Azure CLI tools. It is also possible to use the same templat
 
 - Have an Azure subscription with user administrator access
 - The subscription should have at least the following services resource providers registered:
-    - Microsoft.Networks
-    - Microsoft.Compute
-    - Microsoft.Storage
-    - Microsoft.RedHatOpenShift
-    - Microsoft.Authorization
+- Microsoft.Networks
+- Microsoft.Compute
+- Microsoft.Storage
+- Microsoft.RedHatOpenShift
+- Microsoft.Authorization
 - Have the Azure CLI tools downloaded locally
 - (Optional) Have `jq` installed if you want to use this to obtain some of the parameters per the below steps
 - Have a Red Hat account if you are going to access the Red Hat marketplace post installation

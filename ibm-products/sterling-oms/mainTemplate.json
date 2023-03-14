@@ -368,7 +368,8 @@
             "condition": "[parameters('deployDevVM')]",
             "name": "dev-vm",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]"
+                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
+                "[resourceId('Microsoft.Resources/deployments', 'bastion')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -696,7 +697,7 @@
                         "value": "[parameters('omsImage')]"
                     },
                     "registryName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr')).outputs['acrName'].value]"
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
                     }
                 }
             }
