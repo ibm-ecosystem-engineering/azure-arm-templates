@@ -17,6 +17,12 @@
                 "description": "Azure location for resources"
             }
         },
+        "ibmEntitlementKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Entitlement key for IBM container registry"
+            }
+        },
         "deployVNet": {
             "type": "bool",
             "defaultValue": true,
@@ -295,7 +301,7 @@
         },
         "omsImage": {
             "type": "string",
-            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0.1-220921-0820",
+            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
             "metadata": {
                 "description": "Sterling OMS Image to install"
             }
@@ -660,11 +666,20 @@
                     "namePrefix": {
                         "value": "[parameters('namePrefix')]"
                     },
+                    "ibmEntitlementKey": {
+                        "value": "[parameters('ibmEntitlementKey')]"
+                    },
+                    "fileShareAccountName":{
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    "fileshareSKU":{
+                        "value": "Premium_LRS"
+                    },
                     "createStorageAccount": {
                         "value": true
                     },
                     "storageAccountName": {
-                        "value": "[concat(parameters('namePrefix'),'-deploy-scripts')]"
+                        "value": "[concat(parameters('namePrefix'),'deployscripts')]"
                     },
                     "vnetName": {
                         "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
@@ -698,6 +713,9 @@
                     },
                     "registryName": {
                         "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+                    },
+                    "storageSKU": {
+                        "value": "Premium_LRS"
                     }
                 }
             }

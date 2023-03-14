@@ -17,6 +17,12 @@
                 "description": "Location for deployment container"
             }
         },
+        "ibmEntitlementKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Entitlement key for IBM container registry"
+            }
+        },
         "rgRoleGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
@@ -33,10 +39,22 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), 'filesprm')]",
+            "defaultValue": "[concat(parameters('namePrefix'), 'deployscript')]",
             "metadata": {
-                "description": "Name for the storage account"
+                "description": "Name for the storage account for the script execution"
             }            
+        },
+        "fileShareAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the storage account for the ARO file share"
+            }
+        },
+        "fileshareSKU": {
+            "type": "string",
+            "metadata": {
+                "description": "Storage SKU for the ARO file share"
+            }
         },
         "vnetName": {
             "type": "string",
@@ -107,7 +125,7 @@
         },
         "whichOMS": {
             "type": "string",
-            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0.1-220921-0820",
+            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
             "metadata": {
                 "description": "Sterling OMS Image"
             }
@@ -122,7 +140,7 @@
         
     },
     "variables": {
-      "baseUrl": "https://raw.githubusercontent.com/rich-ehrhardt/arm-templates/initial-version/",
+      "baseUrl": "https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/initial-version/",
       "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
       "scriptName": "[concat(parameters('namePrefix'),'-oms-script')]",
       "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
@@ -204,9 +222,25 @@
                     {
                         "name": "WHICH_OMS",
                         "value": "[parameters('whichOMS')]"
+                    },
+                    {
+                        "name": "STORAGE_ACCOUNT_NAME",
+                        "value": "[parameters('fileShareAccountName')]"
+                    },
+                    {
+                        "name": "FILE_TYPE",
+                        "value": "[parameters('fileshareSKU')]"
+                    },
+                    {
+                        "name": "SC_NAME",
+                        "value": "azure-file"
+                    },
+                    {
+                        "name": "IBM_ENTITLEMENT_KEY",
+                        "secureValue": "[parameters('ibmEntitlementKey')]"
                     }
                 ],
-                "primaryScriptUri": "[uri(variables('baseUrl'),'SterlingOMS/Base/deploy-oms.sh')]",
+                "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",
                 "timeout": "PT30M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
