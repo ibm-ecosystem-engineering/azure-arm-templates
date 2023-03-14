@@ -672,7 +672,7 @@
                     "fileShareAccountName":{
                         "value": "[parameters('storageAccountName')]"
                     },
-                    "fileshareSKU":{
+                    "fileShareSKU":{
                         "value": "Premium_LRS"
                     },
                     "createStorageAccount": {

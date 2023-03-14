@@ -50,7 +50,7 @@
                 "description": "Name of the storage account for the ARO file share"
             }
         },
-        "fileshareSKU": {
+        "fileShareSKU": {
             "type": "string",
             "metadata": {
                 "description": "Storage SKU for the ARO file share"
@@ -229,7 +229,7 @@
                     },
                     {
                         "name": "FILE_TYPE",
-                        "value": "[parameters('fileshareSKU')]"
+                        "value": "[parameters('fileShareSKU')]"
                     },
                     {
                         "name": "SC_NAME",
