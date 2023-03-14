@@ -72,6 +72,28 @@
                 "description": "SSH Key or password for the Virtual Machine."
             }
         },
+        "authType": {
+            "type": "string",
+            "defaultValue": "sshkey",
+            "allowedValues": [
+                "sshkey",
+                "password"
+            ],
+            "metadata": {
+                "description": "Type of VM authentication. SSH Key or Password"
+            }
+        },
+        "securityType": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Standard",
+                "TrustedLaunch"
+            ],
+            "metadata": {
+                "description": "Security type for virtual machine"
+            }
+        },
         "mqPassword": {
             "type": "securestring",
             "metadata": {
@@ -111,9 +133,9 @@
         },
         "vmSize": {
             "type": "string",
-            "defaultValue": "Standard_B2ms",
+            "defaultValue": "Standard_D2s_v3",
             "metadata": {
-                "description": "Size of Dev VM"
+                "description": "Size of Virtual Machine"
             }
         },
         "vmDiskType": {
@@ -143,11 +165,15 @@
         },
         "vmOSVersion": {
             "type": "string",
-            "defaultValue": "18.04-LTS",
+            "defaultValue": "Ubuntu 20.04 LTS",
             "allowedValues": [
-                "18.04-LTS",
-                "20.04-LTS"
-            ]
+                "Ubuntu 18.04 LTS",
+                "Ubuntu 20.04 LTS",
+                "Ubuntu 22.04 LTS"
+            ],
+            "metadata": {
+                "description": "Operating system version"
+            }
         },
         "branch": {
             "type": "string",
@@ -174,7 +200,48 @@
     "variables": {
         "vmName": "[concat(parameters('namePrefix'),'-vm')]",
         "nsgName": "[concat(parameters('namePrefix'), '-nsg')]",
-        "nicName": "[concat(parameters('namePrefix'),'-nic')]"
+        "nicName": "[concat(parameters('namePrefix'),'-nic')]",
+        "linuxConfigSSH": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+                "publicKeys": [
+                    {
+                        "path": "[format('/home/{0}/.ssh/authorized_keys', parameters('adminUsername'))]",
+                        "keyData": "[parameters('adminPassword')]"
+                    }
+                ]
+            }
+        },
+        "linuxConfigPWD": {
+            "disablePasswordAuthentication": false
+        },
+        "imageReference": {
+            "Ubuntu 18.04 LTS": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "18_04-lts-gen2",
+                "version": "latest"
+            },
+            "Ubuntu 20.04 LTS": {
+                "publisher": "Canonical",
+                "offer": "0001-com-ubuntu-server-focal",
+                "sku": "20_04-lts-gen2",
+                "version": "latest"
+            },
+            "Ubuntu 22.04 LTS": {
+                "publisher": "Canonical",
+                "offer": "0001-com-ubuntu-server-jammy",
+                "sku": "22_04-lts-gen2",
+                "version": "latest"
+            }
+        },
+        "securityProfile": {
+            "uefiSettings": {
+                "secureBootEnabled": true,
+                "vTpmEnabled": true
+            },
+            "securityType": "[parameters('securityType')]"
+        }
     },
     "resources": [
         {
@@ -255,12 +322,7 @@
                             "storageAccountType": "[parameters('vmDiskType')]"
                         }
                     },
-                    "imageReference": {
-                        "publisher": "Canonical",
-                        "offer": "UbuntuServer",
-                        "sku": "[parameters('vmOSVersion')]",
-                        "version": "latest"
-                    }
+                    "imageReference": "[variables('imageReference')[parameters('vmOSVersion')]]"
                 },
                 "networkProfile": {
                     "networkInterfaces": [
@@ -273,10 +335,9 @@
                     "computerName": "[variables('vmName')]",
                     "adminUsername": "[parameters('adminUserName')]",
                     "adminPassword": "[parameters('adminPassword')]",
-                    "linuxConfiguration": {
-                        "disablePasswordAuthentication": false
-                    }
+                    "linuxConfiguration": "[if(equals(parameters('authType'), 'sshkey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
                 },
+                "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'),variables('securityProfile'),json('null'))]",
                 "diagnosticsProfile": {
                     "bootDiagnostics": {
                         "enabled": true
@@ -305,9 +366,9 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {
                     "fileUris": [
-                        "[concat(parameters('scriptURI'),'deploy-activemq.sh')]"
+                        "[concat(parameters('scriptURI'),'activemq-config.sh')]"
                     ],
-                    "commandToExecute": "[concat('sh deploy-activemq.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
+                    "commandToExecute": "[concat('sh activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
                 }
             }
         }
