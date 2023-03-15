@@ -315,32 +315,23 @@ fi
 # Create OMS Persistent Volume
 if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
     echo "Creating PVC for OMS"
-cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-file.yaml
-kind: StorageClass
-apiVersion: storage.k8s.io/v1
+cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
 metadata:
-  name: $SC_NAME
-provisioner: kubernetes.io/azure-file
-mountOptions:
-  - dir_mode=0777
-  - file_mode=0777
-  - uid=0
-  - gid=0
-  - mfsymlinks
-  - cache=strict
-  - actimeo=30
-  - noperm
-parameters:
-  location: $LOCATION
-  secretNamespace: kube-system
-  skuName: $FILE_TYPE
-  storageAccount: $STORAGE_ACCOUNT_NAME
-  resourceGroup: $RESOURCE_GROUP
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
+  name: oms-pvc
+  namespace: $OMS_NAMESPACE             
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: $SC_NAME
+  volumeMode: Filesystem
 EOF
 
-    oc create -f ${WORKSPACE_DIR}/azure-storageclass-file.yaml
+    oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml
 else
     echo "PVC for OMS already exists"
 fi
