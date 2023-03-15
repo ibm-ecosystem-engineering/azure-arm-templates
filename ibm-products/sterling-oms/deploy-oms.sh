@@ -3,7 +3,6 @@
 ######
 # Check environment variables
 ENV_VAR_NOT_SET=""
-if [[ -z $BRANCH_NAME ]]; then ENV_VAR_NOT_SET="BRANCH_NAME"; fi
 if [[ -z $CLIENT_ID ]]; then ENV_VAR_NOT_SET="CLIENT_ID"; fi
 if [[ -z $CLIENT_SECRET ]]; then ENV_VAR_NOT_SET="CLIENT_SECRET"; fi
 if [[ -z $TENANT_ID ]]; then ENV_VAR_NOT_SET="TENANT_ID"; fi
@@ -27,14 +26,20 @@ if [[ -n $ENV_VAR_NOT_SET ]]; then
 fi
 
 # Setup workspace
-WORKSPACE_DIR="/workspace"
+if [[ -z $WORKSPACE_DIR ]]; then
+    WORKSPACE_DIR="/workspace"
+fi
 mkdir -p $WORKSPACE_DIR
 
 # Setup binary directory
-BIN_DIR="/usr/local/bin"
+if [[ -z $BIN_DIR ]]; then
+    BIN_DIR="/usr/local/bin"
+fi
 
 # Setup temporary directory
-TMP_DIR="${WORKSPACE_DIR}/tmp"
+if [[ -z $TMP_DIR ]]; then
+    TMP_DIR="${WORKSPACE_DIR}/tmp"
+fi
 mkdir -p $TMP_DIR
 
 #####
@@ -64,16 +69,16 @@ fi
 
 #######
 # Download and install envsubst
-if [[ ! -f ${BIN_DIR}/envsubst ]]; then
-    echo "Downloading and installing envsubst"
-    ENV_SUB_VERSION="v1.4.2"
-    ENV_SUB_ARCH=$(uname -m)
-    ENV_SUB_OS=$(uname -s)
-    ENV_SUB_URL="https://github.com/a8m/envsubst/releases/download/${ENV_SUB_VERSION}/envsubst-${ENV_SUB_OS}-${ENV_SUB_ARCH}"
-    curl -sLo ${TMP_DIR}/envsubst ${ENV_SUB_URL}
-    chmod +x ${TMP_DIR}/envsubst
-    mv ${TMP_DIR}/envsubst /usr/local/bin/envsubst
-fi
+# if [[ ! -f ${BIN_DIR}/envsubst ]]; then
+#     echo "Downloading and installing envsubst"
+#     ENV_SUB_VERSION="v1.4.2"
+#     ENV_SUB_ARCH=$(uname -m)
+#     ENV_SUB_OS=$(uname -s)
+#     ENV_SUB_URL="https://github.com/a8m/envsubst/releases/download/${ENV_SUB_VERSION}/envsubst-${ENV_SUB_OS}-${ENV_SUB_ARCH}"
+#     curl -sLo ${TMP_DIR}/envsubst ${ENV_SUB_URL}
+#     chmod +x ${TMP_DIR}/envsubst
+#     mv ${TMP_DIR}/envsubst /usr/local/bin/envsubst
+# fi
 
 #######
 # Login to Azure CLI
@@ -268,10 +273,10 @@ export OMS_VERSION=$WHICH_OMS
 
 if [[ ${WHICH_OMS} == *"-pro-"* ]]; then
     export OPERATOR_NAME="ibm-oms-pro"
-    export OPERATOR_CSV="ibm-oms-pro.v1.0.0"
+    export OPERATOR_CSV="ibm-oms-pro.v1.0"
 else
     export OPERATOR_NAME="ibm-oms-ent"
-    export OPERATOR_CSV="ibm-oms-ent.v1.0.0"
+    export OPERATOR_CSV="ibm-oms-ent.v1.0"
 fi
 
 if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
@@ -279,6 +284,13 @@ if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; the
     echo "Name        : $OPERATOR_NAME"
     echo "Operator CSV: $OPERATOR_CSV"
 cat << EOF >> ${WORKSPACE_DIR}/install-oms-operator.yaml
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: oms-operator-global
+  namespace: $OMS_NAMESPACE
+spec: {}
+---
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
@@ -299,12 +311,11 @@ metadata:
   name: oms-operator
   namespace: $OMS_NAMESPACE
 spec:
-  channel: "v1.0.1"
+  channel: v1.0
   installPlanApproval: Automatic
   name: $OPERATOR_NAME
   source: ibm-sterling-oms
   sourceNamespace: openshift-marketplace
-  startingCSV: $OPERATOR_CSV
 EOF
     ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml
 else

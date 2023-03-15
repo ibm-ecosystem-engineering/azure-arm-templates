@@ -713,9 +713,6 @@
                     },
                     "registryName": {
                         "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
-                    },
-                    "storageSKU": {
-                        "value": "Premium_LRS"
                     }
                 }
             }

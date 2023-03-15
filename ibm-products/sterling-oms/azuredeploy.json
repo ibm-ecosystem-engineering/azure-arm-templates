@@ -84,13 +84,6 @@
                 "description": "Name of the managed identity used for deployment scripts"
             }
         },
-        "branch_name": {
-            "type": "string",
-            "defaultValue": "main",
-            "metadata": {
-                "description": "GitHub branch name for the deployment scripts"
-            }
-        },
         "spClientId" : {
             "type": "string",
             "metadata": {
@@ -188,10 +181,6 @@
                         "value": "[subscription().id]"
                     },
                     {
-                        "name": "BRANCH_NAME",
-                        "value": "[parameters('branch_name')]"
-                    },
-                    {
                         "name": "RESOURCE_GROUP",
                         "value": "[resourceGroup().name]"
                     },
@@ -251,7 +240,7 @@
         },
         {
             "type": "Microsoft.Storage/storageAccounts",
-            "apiVersion": "2022-06-01",
+            "apiVersion": "2023-01-01",
             "condition": "[parameters('createStorageAccount')]",
             "name": "[parameters('storageAccountName')]",
             "location": "[parameters('location')]",
