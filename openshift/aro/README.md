@@ -19,8 +19,8 @@ This guide uses the Azure CLI tools. It is also possible to use the same templat
 
 1. Clone the repository and change to the ARO base directory if not already there.
     ```shell
-    git clone https://github.com/rich-ehrhardt/arm-templates
-    cd arm-templates
+    git clone https://github.com/ibm-ecosystem-lab/azure-arm-templates.git
+    cd openshift/aro
     export BASE_PATH=$(pwd)
     ```
 
