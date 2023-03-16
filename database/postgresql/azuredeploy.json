@@ -182,7 +182,8 @@
                 }
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', parameters('dbDNSZoneName'))]"
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('dbDNSZoneName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
             ]
         },
         {
