@@ -19,7 +19,7 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), 'filesprm')]",
+            "defaultValue": "[concat(parameters('namePrefix'),'s',uniqueString(resourceGroup().id))]",
             "metadata": {
                 "description": "Name for the storage account"
             }
