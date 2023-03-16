@@ -19,7 +19,7 @@
         },
         "registryName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'r',uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'r',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name of the container registry"
             }

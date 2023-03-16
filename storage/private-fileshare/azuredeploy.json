@@ -19,7 +19,7 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'s',uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'s',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name for the storage account"
             }
