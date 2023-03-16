@@ -349,9 +349,23 @@ fi
 
 
 #######
-# Create JMS Config Map
+# Wait for operator to finish installing
+while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && [[ $count < 60 ]]; do
+    sleep 30
+    echo "Waiting for IBM OMS operator to install $count"
+    count=$(( $count + 1 ))
+done
+
+# Check operator status
+if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]]; then
+    echo "ERROR: IBM OMS Operator did not start before timeout"
+    exit 1;
+else
+    echo "IBM OMS Operator installed and running"
+fi
 
 
 #######
 # Create OMSEnvironment
+
 
