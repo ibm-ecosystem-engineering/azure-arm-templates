@@ -7,7 +7,7 @@
             "minLength": 3,
             "maxLength": 10,
             "metadata": {
-                "description": "Prefix for resource names"
+                "description": "Prefix for resource names. Must only contain numbers and lowercase letters."
             }
         },
         "location": {
@@ -218,7 +218,7 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), 'filesprm')]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'s',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name for the storage account"
             }            
@@ -253,7 +253,7 @@
         },
         "registryName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), 'registry')]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'r',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name of the container registry"
             }
@@ -415,7 +415,8 @@
             "comments": "Deploys Azure Red Hat Openshift on existing VNet and subnets",
             "name": "aro",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]"
+                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
+                "[resourceId('Microsoft.Resources/deployments', 'private-fileshare')]"
             ],
             "properties": {
                 "mode": "Incremental",

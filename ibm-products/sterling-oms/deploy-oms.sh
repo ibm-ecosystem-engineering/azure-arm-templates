@@ -46,6 +46,7 @@ mkdir -p $TMP_DIR
 if [[ -z $PSQL_POD_NAME ]]; then export PSQL_POD_NAME="psql-client"; fi
 if [[ -z $DB_NAME ]]; then export DB_NAME="oms"; fi
 if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
+if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 
 #####
 # Download OC and kubectl
@@ -402,8 +403,144 @@ else
     echo "Using existing psql client pod ${PSQL_POD_NAME}"
 fi
 
+######
+# Create database and schema in db server
+
 
 #######
 # Create OMSEnvironment
-
+if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+    echo "Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
+    export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
+    cat << EOF >> omenvironment.yaml
+apiVersion: apps.oms.ibm.com/v1beta1
+kind: OMEnvironment
+metadata:
+  name: ${OM_INSTANCE_NAME}
+  namespace: ${OMS_NAMESPACE}
+  annotations:
+    apps.oms.ibm.com/dbvendor-install-driver: "true"
+    apps.oms.ibm.com/dbvendor-auto-transform: "true"
+    apps.oms.ibm.com/dbvendor-driver-url: "https://jdbc.postgresql.org/download/postgresql-42.2.27.jre7.jar"
+spec:
+  license:
+    accept: true
+    acceptCallCenterStore: true
+  common:
+    ingress:
+      host: "${ARO_INGRESS}"
+      ssl:
+        enabled: false
+  database:
+    postgresql:
+      dataSourceName: jdbc/OMDS
+      host: "${PSQL_HOST}"
+      name: ${DB_NAME}
+      port: 5432
+      schema: ${SCHEMA_NAME}
+      secure: true
+      user: azureuser
+  dataManagement:
+    mode: create
+  storage:
+    name: oms-pvc
+  secret: oms-secret
+  healthMonitor:
+    profile: ProfileSmall
+    replicaCount: 1
+  orderHub:
+    bindingAppServerName: smcfs
+    base:
+      profile: ProfileSmall
+      replicaCount: 1
+    extn:
+      profile: ProfileSmall
+      replicaCount: 1
+  image:
+    oms:
+      tag: 10.0.2209.1-amd64
+      repository: cp.icr.io/cp/ibm-oms-professional
+    orderHub:
+      base:
+        tag: 10.0.2209.1-amd64
+        repository: cp.icr.io/cp/ibm-oms-professional
+      extn:
+        tag: 10.0.2209.1-amd64
+        repository: cp.icr.io/cp/ibm-oms-professional
+    imagePullSecrets:
+      - name: ibm-entitlement-key
+  networkPolicy:
+    ingress: []
+    podSelector:
+      matchLabels:
+        release: oms
+        role: appserver
+    policyTypes:
+      - Ingress
+  serverProfiles:
+    - name: ProfileSmall
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 512Mi
+    - name: ProfileMedium
+      resources:
+        limits:
+          cpu: 2000m
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+    - name: ProfileLarge
+      resources:
+        limits:
+          cpu: 4000m
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 2Gi
+    - name: ProfileHuge
+      resources:
+        limits:
+          cpu: 4000m
+          memory: 8Gi
+        requests:
+          cpu: 500m
+          memory: 4Gi
+    - name: ProfileColossal
+      resources:
+        limits:
+          cpu: 4000m
+          memory: 16Gi
+        requests:
+          cpu: 500m
+          memory: 4Gi
+  servers:
+    - name: smcfs
+      replicaCount: 1
+      profile: ProfileHuge
+      appServer:
+        dataSource:
+          minPoolSize: 10
+          maxPoolSize: 25
+        ingress:
+          contextRoots: [smcfs, sbc, sma, isccs, wsc, isf]
+        threads:
+          min: 10
+          max: 25
+        vendor: websphere
+  serviceAccount: default
+  upgradeStrategy: RollingUpdate
+  customerOverrides:
+      - groupName: BaseProperties
+        propertyList:
+          yfs.yfs.ssi.enabled: N
+EOF
+    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml
+else
+    echo "Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
+fi
 

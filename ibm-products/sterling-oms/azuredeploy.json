@@ -23,6 +23,13 @@
                 "description": "Entitlement key for IBM container registry"
             }
         },
+        "psql-host": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('namePrefix'),'-postgresql.postgres.database.azure.com')]",
+            "metadata": {
+                "description": "PostgreSQL FQDN address"
+            }
+        },
         "rgRoleGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
@@ -162,7 +169,7 @@
                     "storageAccountName": "[parameters('storageAccountName')]",
                     "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
                 },
-                "azCliVersion": "2.9.1",  
+                "azCliVersion": "2.46.0",  
                 "environmentVariables": [
                     {
                         "name": "CLIENT_ID",
@@ -227,6 +234,10 @@
                     {
                         "name": "IBM_ENTITLEMENT_KEY",
                         "secureValue": "[parameters('ibmEntitlementKey')]"
+                    },
+                    {
+                        "name": "PSQL_HOST",
+                        "value": "[parameters('psql-host')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",

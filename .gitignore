@@ -1,3 +1,4 @@
-sp-details.json
-environment.properties
+*sp-details.json
+*.properties
 tmp
+*-parameters.json
