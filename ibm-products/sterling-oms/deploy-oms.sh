@@ -10,8 +10,6 @@ if [[ -z $SUBSCRIPTION_ID ]]; then ENV_VAR_NOT_SET="SUBSCRIPTION_ID"; fi
 if [[ -z $ARO_CLUSTER ]]; then ENV_VAR_NOT_SET="ARO_CLUSTER"; fi
 if [[ -z $RESOURCE_GROUP ]]; then ENV_VAR_NOT_SET="RESOURCE_GROUP"; fi
 if [[ -z $OMS_NAMESPACE ]]; then ENV_VAR_NOT_SET="OMS_NAMESPACE"; fi
-if [[ -z $VNET_NAME ]]; then ENV_VAR_NOT_SET="VNET_NAME"; fi
-if [[ -z $SUBNET_PRIVATE_ENDPOINT_NAME ]]; then ENV_VAR_NOT_SET="SUBNET_PRIVATE_ENDPOINT_NAME"; fi
 if [[ -z $ADMIN_PASSWORD ]]; then ENV_VAR_NOT_SET="ADMIN_PASSWORD"; fi
 if [[ -z $WHICH_OMS ]]; then ENV_VAR_NOT_SET="WHICH_OMS"; fi
 if [[ -z $ACR_NAME ]]; then ENV_VAR_NOT_SET="ACR_NAME"; fi
@@ -19,6 +17,7 @@ if [[ -z $STORAGE_ACCOUNT_NAME ]]; then ENV_VAR_NOT_SET="STORAGE_ACCOUNT_NAME"; 
 if [[ -z $FILE_TYPE ]]; then ENV_VAR_NOT_SET="FILE_TYPE"; fi
 if [[ -z $SC_NAME ]]; then ENV_VAR_NOT_SET="SC_NAME"; fi
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then ENV_VAR_NOT_SET="IBM_ENTITLEMENT_KEY"; fi
+if [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
     echo "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
@@ -41,6 +40,12 @@ if [[ -z $TMP_DIR ]]; then
     TMP_DIR="${WORKSPACE_DIR}/tmp"
 fi
 mkdir -p $TMP_DIR
+
+#######
+# Set defaults (can be overriden with environment variables)
+if [[ -z $PSQL_POD_NAME ]]; then export PSQL_POD_NAME="psql-client"; fi
+if [[ -z $DB_NAME ]]; then export DB_NAME="oms"; fi
+if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 
 #####
 # Download OC and kubectl
@@ -66,19 +71,6 @@ if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
     mv ${TMP_DIR}/oc ${BIN_DIR}/oc
     mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
 fi
-
-#######
-# Download and install envsubst
-# if [[ ! -f ${BIN_DIR}/envsubst ]]; then
-#     echo "Downloading and installing envsubst"
-#     ENV_SUB_VERSION="v1.4.2"
-#     ENV_SUB_ARCH=$(uname -m)
-#     ENV_SUB_OS=$(uname -s)
-#     ENV_SUB_URL="https://github.com/a8m/envsubst/releases/download/${ENV_SUB_VERSION}/envsubst-${ENV_SUB_OS}-${ENV_SUB_ARCH}"
-#     curl -sLo ${TMP_DIR}/envsubst ${ENV_SUB_URL}
-#     chmod +x ${TMP_DIR}/envsubst
-#     mv ${TMP_DIR}/envsubst /usr/local/bin/envsubst
-# fi
 
 #######
 # Login to Azure CLI
@@ -122,6 +114,9 @@ else
 fi
 
 ######
+# Wait for cluster operators to finish deploying
+
+######
 # Create required namespace
 CURRENT_NAMESPACE=$(${BIN_DIR}/oc get namespaces | grep $OMS_NAMESPACE)
 if [[ -z $CURRENT_NAMESPACE ]]; then
@@ -149,7 +144,9 @@ fi
 
 #####
 # Create storage class
-cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
+if [[ -z $(${BIN_DIR}/oc get sc | grep $SC_NAME) ]]; then
+    echo "Creating Azure file storage"
+    cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
@@ -175,6 +172,9 @@ volumeBindingMode: Immediate
 EOF
 
 oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
+else
+    echo "Azure file storage already exists"
+fi
 
 
 ######
@@ -255,7 +255,6 @@ cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
     }
 }
 EOF
-
     ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
 else
     echo "ACR login secret already created on cluster"
@@ -264,7 +263,12 @@ fi
 
 #######
 # Create entitlement key secret for image pull
-oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
+if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-key) ]]; then
+    echo "Creating entitlement key secret"
+    ${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
+else
+    echo "Using existing entitlement key secret"
+fi
 
 ########
 # Install OMS Operator
@@ -362,6 +366,40 @@ if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-man
     exit 1;
 else
     echo "IBM OMS Operator installed and running"
+fi
+
+######
+# Create psql pod to manage DB (this will be used to create db and schema)
+if [[ -z $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME}) ]]; then
+    echo "Creating new psql client pod ${PSQL_POD_NAME}"
+    cat << EOF >> ${WORKSPACE_DIR}/psql-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${PSQL_POD_NAME}
+  namespace: ${OMS_NAMESPACE}
+spec:
+  containers:
+    - name: psql-container
+      image: rhel8/postgresql-12
+      command: [ "/bin/bash", "-c", "--" ]
+      args: [ "while true; do sleep 30; done;" ]
+      env:
+        - name: PSQL_HOST
+          value: ${PSQL_HOST}
+        - name: PSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: oms-secret
+              key: dbPassword
+        - name: DB_NAME
+          value: ${DB_NAME}
+        - name: SCHEMA_NAME
+          value: ${SCHEMA_NAME}
+EOF
+    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml
+else
+    echo "Using existing psql client pod ${PSQL_POD_NAME}"
 fi
 
 
