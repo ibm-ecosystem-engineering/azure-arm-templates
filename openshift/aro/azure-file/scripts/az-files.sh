@@ -95,6 +95,20 @@ else
     fi
 fi
 
+######
+# Wait for cluster operators to finish
+count=0
+while [[ $(${BIN_DIR}/oc get clusteroperators -o json | jq -r '.items[].status.conditions[] | select(.type=="Available") | .status' | grep False) ]]; do
+    echo "INFO: Waiting for cluster operators to finish installation. Waited $count minutes. Will wait up to 30 minutes."
+    sleep 60
+    count=$(( $count + 1 ))
+    if (( $count > 60 )); then
+        echo "ERROR: Timeout waiting for cluster operators to be available"
+        exit 1;    
+    fi
+done
+echo "INFO: All OpenShift cluster operators available"
+
 export LOCATION=$(az group show --resource-group $RESOURCE_GROUP --query location -o tsv)
 
 #####
