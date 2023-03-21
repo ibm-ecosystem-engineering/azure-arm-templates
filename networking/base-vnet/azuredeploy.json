@@ -1,0 +1,169 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "namePrefix": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix for resource names"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Azure location for resources"
+            }
+        },
+        "vnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/20",
+            "metadata": {
+                "description": "CIDR for Virtual Network"
+            }
+        },
+        "controlSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24",
+            "metadata": {
+                "description": "CIDR for the control subnet"
+            }
+        },
+        "workerSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.1.0/24",
+            "metadata": {
+                "description": "CIDR for the worker subnet"
+            }
+        },
+        "natGwName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('namePrefix'),'-ngw')]",
+            "metadata": {
+                "description": "Name of the NAT gateway"
+            }
+        },
+        "createNGW": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to create NAT Gateway and associated public IP"
+            }
+        }
+    },
+    "variables": {
+        "vnetName": "[concat(parameters('namePrefix'), '-vnet')]",
+        "controlSubnetName": "[concat(parameters('namePrefix'), '-control-subnet')]",
+        "workerSubnetName": "[concat(parameters('namePrefix'), '-worker-subnet')]",
+        "gwPublicIPName": "[concat(parameters('namePrefix'),'-pip')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-07-01",
+            "name": "[variables('vnetName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/natGateways', parameters('natGwName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnetCIDR')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('controlSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('controlSubnetCIDR')]",
+                            "privateLinkServiceNetworkPolicies": "Disabled",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "[variables('workerSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('workerSubnetCIDR')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('createNGW')]",
+            "name": "[variables('gwPublicIPName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+            },
+            "sku": {
+                "name": "Standard"
+            }
+        },
+        {
+            "type": "Microsoft.Network/natGateways",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('createNGW')]",
+            "name": "[parameters('natGwName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIpAddresses": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/publicIpAddresses/', variables('gwPublicIPName'))]"
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('gwPublicIPName'))]"
+            ]
+        }
+    ],
+    "outputs": {
+        "vnetName": {
+            "type": "string",
+            "value": "[variables('vnetName')]"
+        },
+        "vnetCIDR": {
+            "type": "string",
+            "value": "[parameters('vnetCIDR')]"
+        },
+        "controlSubnetName": {
+            "type": "string",
+            "value": "[variables('controlSubnetName')]"
+        },
+        "controlSubnetCIDR": {
+            "type": "string",
+            "value": "[parameters('controlSubnetCIDR')]"
+        },
+        "workerSubnetName": {
+            "type": "string",
+            "value": "[variables('workerSubnetName')]"
+        },
+        "workerSubnetCIDR": {
+            "type": "string",
+            "value": "[parameters('workerSubnetCIDR')]"
+        },
+        "ngwName": {
+            "condition": "[parameters('createNGW')]",
+            "type": "string",
+            "value": "[parameters('natGwName')]"
+        }
+    }
+}
