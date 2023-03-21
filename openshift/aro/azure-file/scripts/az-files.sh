@@ -96,6 +96,7 @@ if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
             exit 1;    
         fi
     done
+    echo "INFO: Successfully logged into cluster $ARO_CLUSTER"
 else   
     CURRENT_SERVER=$(${BIN_DIR}/oc status | grep server | awk '{printf $6}' | sed -e 's#^https://##; s#/##')
     API_SERVER=$(az aro list --query "[?contains(name,'$CLUSTER')].[apiserverProfile.url]" -o tsv)
