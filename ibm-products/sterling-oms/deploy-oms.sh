@@ -129,7 +129,6 @@ fi
 
 ######
 # Install and configure Azure Files CSI Drivers and Storage Classes
-echo "Creating Azure files storage"
 
 export LOCATION=$(az group show --resource-group $RESOURCE_GROUP --query location -o tsv)
 export RESOURCE_GROUP_NAME=$RESOURCE_GROUP
@@ -355,7 +354,7 @@ fi
 
 #######
 # Wait for operator to finish installing
-while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && [[ $count < 60 ]]; do
+while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && (( $count < 60 )); do
     sleep 30
     echo "Waiting for IBM OMS operator to install $count"
     count=$(( $count + 1 ))
@@ -403,12 +402,47 @@ else
     echo "Using existing psql client pod ${PSQL_POD_NAME}"
 fi
 
+#####
+# Wait for psql pod to start
+count=1;
+while [[ $(${BIN_DIR}/oc get pods -n oms | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
+    echo "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
+    sleep 30
+    if (( $count > 10 )); then
+        echo "ERROR: Timeout waiting for pod ${PSQL_POD_NAME} to start."
+        exit 1
+    fi
+done
+
 ######
 # Create database and schema in db server
 
+# Confirm db server exists
+PSQL_NAME=$(echo ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
+if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
+    echo "ERROR: PostgreSQL database ${PSQL_NAME} not found"
+    exit 1
+else
+    # Create database if it does not exist
+    az postgres flexible-server db show --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1
+    if (( $? != 0 )); then
+        echo "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
+        az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP
+    else
+        echo "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
+    fi
+
+    # Create schema if it does not exist
+    if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
+        echo "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
+        ${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;"
+    else
+        echo "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
+    fi
+fi
 
 #######
-# Create OMSEnvironment
+# Create OMEnvironment
 if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
     echo "Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
@@ -544,3 +578,8 @@ else
     echo "Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
 fi
 
+#### Wait for pods to start
+
+
+
+#### Patch OMEnvironment to change data management to upgrade from create
