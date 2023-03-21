@@ -308,7 +308,7 @@
         }
     },
     "variables": {
-        "baseUrl": "https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/initial-version/"
+        "baseUrl": "https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/main/"
     },
     "resources": [
         {
