@@ -1,0 +1,349 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "Creates an Azure file share storage class in OpenShift"
+    },
+    "parameters": {
+        "aroClusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the ARO cluster"
+            }
+        },
+        "spClientId" : {
+            "type": "string",
+            "metadata": {
+                "description" : "The app ID of the Service Principal (client id)"
+            }
+        },
+        "spClientSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The service principal secret key."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for the deployment script container"
+            }
+        },
+        "managedIdName": {
+            "type": "string",
+            "defaultValue": "az-file-sp",
+            "metadata": {
+                "description": "Name of the managed identity that will run the container (and create storage if necessary)"
+            }
+        },
+        "createManagedIdentity": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create a new managed identity to run the deployment script container"
+            }
+        },
+        "fileType": {
+            "type": "string",
+            "defaultValue": "Premium_LRS",
+            "allowedValues": [
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_LRS",
+                "Standard_ZRS"
+            ],
+            "metadata": {
+                "description": "Type of storage account. If storage account already exists, this value must match existing storage account."
+            }
+        },
+        "createStorageAccount": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create a new storage account"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "[concat('arofileshare',substring(uniqueString(resourceGroup().id),1,7))]",
+            "metadata": {
+                "description": "Name for the storage account for the script execution"
+            }            
+        },
+        "vnetName": {
+            "type": "string",
+            "defaultValue": "vnet",
+            "metadata": {
+                "description": "Name of the virtual network for the storage endpoint"
+            }
+        },
+        "privateStorageEndpointName": {
+            "type": "string",
+            "defaultValue": "oms-pe-premiumstorage",
+            "metadata": {
+                "description": "Name of the private endpoint for the storage"
+            }
+        },
+        "createSubnet": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create a new subnet for the private endpoint"
+            }
+        },
+        "subnetName": {
+            "type": "string",
+            "defaultValue": "storage-subnet",
+            "metadata": {
+                "description": "Name of the subnet to connect private endpoint onto"
+            }
+        },
+        "subnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.2.0/24",
+            "metadata": {
+                "description": "CIDR for the subnet if creating"
+            }
+        },
+        "storageSuffix": {
+            "type": "string",
+            "defaultValue": "core.windows.net",
+            "metadata": {
+                "description": "URI for storage"
+            }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "GitHub branch for deployment script"
+            }
+        },
+        "rgRoleGuid": {
+            "type": "string",
+            "defaultValue": "[newGuid()]",
+            "metadata": {
+                "description": "forceUpdateTag property, used to force the execution of the script resource when no other properties have changed."
+            }
+        }
+    },
+    "variables": {
+        "scriptName": "[concat(parameters('aroClusterName'),'-file-script')]",
+        "containerGroupName": "[concat(parameters('aroClusterName'),'-file-cg')]",
+        "containerStorageAccountName": "[concat('cgstore',substring(uniqueString(resourceGroup().id),1,7))]",
+        "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
+        "storageDNSZoneName": "[concat('privatelink.file.',parameters('storageSuffix'))]",
+        "fileStorageAccountPrivateEndpointGroupName": "file",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2021-06-01",
+            "name": "[parameters('storageAccountName')]",
+            "condition": "[parameters('createStorageAccount')]",
+            "location": "[parameters('location')]",
+            "kind": "FileStorage",
+            "sku": {
+                "name": "[parameters('fileType')]"
+            },
+            "properties": {
+                "allowSharedKeyAccess": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false,
+                "supportsHttpsTrafficOnly": false,
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Deny"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-11-01",
+            "condition": "[parameters('createSubnet')]",
+            "name": "[concat(parameters('vnetName'),'/',parameters('subnetName'))]",
+            "properties": {
+                "addressPrefix": "[parameters('subnetCIDR')]",
+                "privateLinkServiceNetworkPolicies": "Enabled",
+                "privateEndpointNetworkPolicies": "Disabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2020-06-01",
+            "name": "[variables('storageDNSZoneName')]",
+            "location": "global",
+            "properties": {},
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2020-06-01",
+            "name": "[concat(variables('storageDNSZoneName'),'/',parameters('vnetName'),'-link')]",
+            "location": "global",
+            "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('storageDNSZoneName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-03-01",
+            "name": "[parameters('privateStorageEndpointName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "subnet": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "[parameters('privateStorageEndpointName')]",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName'))]",
+                            "groupIds": [
+                                "[variables('fileStorageAccountPrivateEndpointGroupName')]"
+                            ]
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+               "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2022-07-01",
+            "name": "[concat(parameters('privateStorageEndpointName'),'/','dnsgroupname')]",
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "premium",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('storageDNSZoneName'))]"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints',parameters('privateStorageEndpointName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "comments": "Creates the Azure file share storage class in OpenShift",
+            "name": "[variables('scriptName')]",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[concat('/subscriptions/',subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('managedIdName'))]": {}
+                }
+            },
+            "kind": "AzureCLI",
+            "properties": {
+                "forceUpdateTag": "[parameters('rgRoleGuid')]",
+                "containerSettings": {
+                    "containerGroupName": "[variables('containerGroupName')]"
+                },
+                "storageAccountSettings": {
+                    "storageAccountName": "[parameters('storageAccountName')]",
+                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
+                },
+                "azCliVersion": "2.45.0",
+                "environmentVariables": [
+                    {
+                        "name": "RESOURCE_GROUP",
+                        "value": "[resourceGroup().name]"
+                    },
+                    {
+                        "name": "STORAGE_ACCOUNT_NAME",
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    {
+                        "name": "CLIENT_ID",
+                        "value": "[parameters('spClientId')]"
+                    },
+                    {
+                        "name": "CLIENT_SECRET",
+                        "secureValue": "[parameters('spClientSecret')]"
+                    },
+                    {
+                        "name": "TENANT_ID",
+                        "value": "[subscription().tenantId]"
+                    },
+                    {
+                        "name": "SUBSCRIPTION_ID",
+                        "value": "[subscription().id]"
+                    },
+                    {
+                        "name": "ARO_CLUSTER",
+                        "value": "[parameters('aroClusterName')]"
+                    }
+                ],
+                "primaryScriptUri": "[uri(variables('baseUrl'),'openshift/aro/azure-files/scripts/az-files.sh')]",
+                "timeout": "PT30M",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('roleDefinitionName')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', parameters('privateStorageEndpointName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('containerStorageAccountName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-01-01",
+            "comments": "Storage account is used for deployment script container",
+            "name": "[variables('containerStorageAccountName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "accessTier": "Hot"
+            }
+        },
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[parameters('managedIdName')]",
+            "condition": "[parameters('createManagedIdentity')]",
+            "location": "[parameters('location')]"
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[variables('roleDefinitionName')]",
+            "condition": "[parameters('createManagedIdentity')]",
+            "dependsOn": [
+                "[parameters('managedIdName')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                "principalId": "[reference(parameters('managedIdName')).principalId]",
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
+            }
+        }
+    ],
+    "outputs": {}
+}
