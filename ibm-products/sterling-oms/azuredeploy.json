@@ -136,11 +136,18 @@
             "metadata": {
                 "description": "Name of the container registry"
             }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
         }
         
     },
     "variables": {
-      "baseUrl": "https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/initial-version/",
+      "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
       "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
       "scriptName": "[concat(parameters('namePrefix'),'-oms-script')]",
       "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
