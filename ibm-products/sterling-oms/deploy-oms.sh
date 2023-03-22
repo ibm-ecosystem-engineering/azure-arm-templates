@@ -26,7 +26,7 @@ fi
 
 # Setup workspace default to Azure deployment script output shared filesystem
 if [[ -z $WORKSPACE_DIR ]]; then
-    WORKSPACE_DIR="/mnt/azscripts/azscriptoutput"
+    WORKSPACE_DIR="/workspace"
 fi
 mkdir -p $WORKSPACE_DIR
 
@@ -111,7 +111,7 @@ if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
     CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
     # Below loop added to allow authentication service to start on new clusters
     count=0
-    while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD > /dev/null 2>&1 ; do
+    while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD 1> /dev/null 2> /dev/null ; do
         echo "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
         sleep 60
         count=$(( $count + 1 ))
