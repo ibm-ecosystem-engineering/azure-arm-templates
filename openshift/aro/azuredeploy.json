@@ -10,62 +10,6 @@
                 "description": "Prefix for resource names"
             }
         },
-        "location": {
-            "type": "string",
-            "defaultValue": "[resourceGroup().location]",
-            "metadata": {
-                "description": "Azure location for resources"
-            }
-        },
-        "vnetCIDR": {
-            "type": "string",
-            "defaultValue": "10.0.0.0/20",
-            "metadata": {
-                "description": "CIDR for Virtual Network"
-            }
-        },
-        "vnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), '-vnet')]",
-            "metadata": {
-                "description": "Name of the virtual network"
-            }
-        },
-        "createVnet": {
-            "type": "bool",
-            "defaultValue": true,
-            "metadata": {
-                "description": "Flag to determine whether to create a new Virtual Network or use existing"
-            }
-        },
-        "controlSubnetCIDR": {
-            "type": "string",
-            "defaultValue": "10.0.0.0/24",
-            "metadata": {
-                "description": "CIDR for the control subnet"
-            }
-        },
-        "controlSubnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), '-control-subnet')]",
-            "metadata": {
-                "description": "Name of the control / master subnet"
-            }
-        },
-        "workerSubnetCIDR": {
-            "type": "string",
-            "defaultValue": "10.0.1.0/24",
-            "metadata": {
-                "description": "CIDR for the worker subnet"
-            }
-        },
-        "workerSubnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'), '-worker-subnet')]",
-            "metadata": {
-                "description": "Name of the worker subnet"
-            }
-        },
         "spClientId" : {
             "type": "string",
             "metadata": {
@@ -94,6 +38,84 @@
             "type": "securestring",
             "metadata": {
                 "description": "Red Hat OpenShift Pull Secret"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Azure location for resources"
+            }
+        },
+        "vnetName": {
+            "type": "string",
+            "defaultValue": "vnet",
+            "metadata": {
+                "description": "Name of the virtual network"
+            }
+        },
+        "createVnet": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create a new Virtual Network or use existing"
+            }
+        },
+        "createAzureFileStorage": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Set to true to create an OpenShift storage class with Azure file shares (RWX filesystem)"
+            }
+        },
+        "vnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/20",
+            "metadata": {
+                "description": "CIDR for Virtual Network"
+            }
+        },
+        "controlSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24",
+            "metadata": {
+                "description": "CIDR for the control subnet"
+            }
+        },
+        "workerSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.1.0/24",
+            "metadata": {
+                "description": "CIDR for the worker subnet"
+            }
+        },
+        "storageSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.2.0/24",
+            "metadata": {
+                "description": "CIDR for the storage subnet (if creating)"
+            }
+        }
+        ,
+        "controlSubnetName": {
+            "type": "string",
+            "defaultValue": "control-subnet",
+            "metadata": {
+                "description": "Name of the control / master subnet"
+            }
+        },
+        "workerSubnetName": {
+            "type": "string",
+            "defaultValue": "worker-subnet",
+            "metadata": {
+                "description": "Name of the worker subnet"
+            }
+        },
+        "storageSubnetName": {
+            "type": "string",
+            "defaultValue": "storage-subnet",
+            "metadata": {
+                "description": "Name of the storage subnet (if creating file share storage)"
             }
         },
         "domain": {
@@ -184,15 +206,22 @@
             "metadata": {
                 "description": "Visibility of cluster ingress portal - public or private"
             }
-        }
-
-        
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
+        }       
     },
     "variables": {
         "aroRG": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',variables('clusterName'))]",
         "clusterName": "[concat(parameters('namePrefix'), '-aro')]",
         "contribRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-        "userAccessAdminRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '18d7d88d-d35e-4fb5-a5c3-7773c20a72d9')]"
+        "userAccessAdminRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '18d7d88d-d35e-4fb5-a5c3-7773c20a72d9')]",
+        "azureFileDeploymentName": "[concat(parameters('namePrefix'),'-file-deploy')]",
+        "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]"
     },
     "resources": [
         {
@@ -326,6 +355,48 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
             ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('createAzureFileStorage')]",
+            "name": "[variables('azureFileDeploymentName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.RedHatOpenShift/OpenShiftClusters', variables('clusterName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), 'openshift/aro/azure-file/azuredeploy.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "aroClusterName": {
+                        "value": "[variables('clusterName')]"
+                    },
+                    "spClientId": {
+                        "value": "[parameters('spClientId')]"
+                    },
+                    "spClientSecret": {
+                        "value": "[parameters('spClientSecret')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('vnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('storageSubnetName')]"
+                    },
+                    "subnetCIDR": {
+                        "value": "[parameters('storageSubnetCIDR')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    }
+                }
+            }
         }
     ],
     "outputs": {
