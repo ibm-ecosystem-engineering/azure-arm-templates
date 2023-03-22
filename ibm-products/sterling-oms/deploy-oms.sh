@@ -47,6 +47,7 @@ if [[ -z $PSQL_POD_NAME ]]; then export PSQL_POD_NAME="psql-client"; fi
 if [[ -z $DB_NAME ]]; then export DB_NAME="oms"; fi
 if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
+if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 
 #####
 # Download OC and kubectl
@@ -59,7 +60,7 @@ OC_URL="https://mirror.openshift.com/pub/openshift-v4/${ARCH}/clients/ocp/stable
 
 # Download and install CLI's if they do not already exist
 if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
-    echo "Downloading and installing oc and kubectl"
+    echo "INFO: Downloading and installing oc and kubectl"
     curl -sLo $TMP_DIR/openshift-client.tgz $OC_URL
 
     if ! tar tzf $TMP_DIR/openshift-client.tgz 1> /dev/null 2> /dev/null; then
@@ -83,17 +84,17 @@ if (( $? != 0 )); then
         echo "ERROR: Unable to login to service principal. Check supplied details in credentials.properties."
         exit 1
     else
-        echo "Successfully logged on with service principal"
+        echo "INFO: Successfully logged on with service principal"
     fi
     az account set --subscription "$SUBSCRIPTION_ID" > /dev/null 2>&1
     if (( $? != 0 )); then
         echo "ERROR: Unable to use subscription id $SUBSCRIPTION_ID. Please check and try agian."
         exit 1
     else
-        echo "Successfully changed to subscription : $(az account show --query name -o tsv)"
+        echo "INFO: Successfully changed to subscription : $(az account show --query name -o tsv)"
     fi
 else
-    echo "Using existing Azure CLI login"
+    echo "INFO: Using existing Azure CLI login"
 fi
 
 #######
@@ -144,10 +145,10 @@ fi
 # Create required namespace
 CURRENT_NAMESPACE=$(${BIN_DIR}/oc get namespaces | grep $OMS_NAMESPACE)
 if [[ -z $CURRENT_NAMESPACE ]]; then
-    echo "Creating namespace"
+    echo "INFO: Creating namespace"
     ${BIN_DIR}/oc create namespace $OMS_NAMESPACE
 else
-    echo "Namespace $OMS_NAMESPACE already exists"
+    echo "INFO: Namespace $OMS_NAMESPACE already exists"
 fi
 
 ######
@@ -159,8 +160,9 @@ export RESOURCE_GROUP_NAME=$RESOURCE_GROUP
 #####
 # Set ARO cluster permissions
 if [[ $(${BIN_DIR}/oc get clusterrole | grep azure-secret-reader) ]]; then
-    echo "Using existing cluster role"
+    echo "INFO: Using existing cluster role"
 else
+    echo "INFO: creating cluster role for Azure file storage"
     oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets
     oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder
 fi
@@ -168,7 +170,7 @@ fi
 #####
 # Create storage class
 if [[ -z $(${BIN_DIR}/oc get sc | grep $SC_NAME) ]]; then
-    echo "Creating Azure file storage"
+    echo "INFO: Creating Azure file storage"
     cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -196,7 +198,7 @@ EOF
 
 oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 else
-    echo "Azure file storage already exists"
+    echo "INFO: Azure file storage already exists"
 fi
 
 
@@ -210,7 +212,7 @@ export TRUSTSTOREPW="$ADMIN_PASSWORD"
 export KEYSTOREPW="$ADMIN_PASSWORD"
 
 if [[ -z $(${BIN_DIR}/oc get rolebindings -n $OMS_NAMESPACE | grep oms-rolebinding) ]]; then
-    echo "Creating OMS RBAC"
+    echo "INFO: Creating OMS RBAC"
 cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -240,7 +242,7 @@ EOF
 
     ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml
 else
-    echo "OMS RBAC already exists"
+    echo "INFO: OMS RBAC already exists"
 fi
 
 if [[ -z $(${BIN_DIR}/oc get secrets -n $OMS_NAMESPACE | grep oms-secret) ]]; then
@@ -261,12 +263,12 @@ stringData:
 EOF
     ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml
 else
-    echo "OMS Secret already exists"
+    echo "INFO: OMS Secret already exists"
 fi
 
 # Get Azure container registry credentials
 if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
-    echo "Creating ACR Login Secret"
+    echo "INFO: Creating ACR Login Secret"
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
 cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
@@ -280,17 +282,17 @@ cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
 EOF
     ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
 else
-    echo "ACR login secret already created on cluster"
+    echo "INFO: ACR login secret already created on cluster"
 fi
 
 
 #######
 # Create entitlement key secret for image pull
 if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-key) ]]; then
-    echo "Creating entitlement key secret"
+    echo "INFO: Creating entitlement key secret"
     ${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
 else
-    echo "Using existing entitlement key secret"
+    echo "INFO: Using existing entitlement key secret"
 fi
 
 ########
@@ -307,9 +309,9 @@ else
 fi
 
 if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
-    echo "Installing OMS Operator"
-    echo "Name        : $OPERATOR_NAME"
-    echo "Operator CSV: $OPERATOR_CSV"
+    echo "INFO: Installing OMS Operator"
+    echo "INFO: Name        : $OPERATOR_NAME"
+    echo "INFO: Operator CSV: $OPERATOR_CSV"
 cat << EOF >> ${WORKSPACE_DIR}/install-oms-operator.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -346,13 +348,13 @@ spec:
 EOF
     ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml
 else
-    echo "IBM OMS Operator already installed"
+    echo "INFO: IBM OMS Operator already installed"
 fi
 
 #######
 # Create OMS Persistent Volume
 if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
-    echo "Creating PVC for OMS"
+    echo "INFO: Creating PVC for OMS"
 cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -371,7 +373,7 @@ EOF
 
     oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml
 else
-    echo "PVC for OMS already exists"
+    echo "INFO: PVC for OMS already exists"
 fi
 
 
@@ -379,7 +381,7 @@ fi
 # Wait for operator to finish installing
 while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && (( $count < 60 )); do
     sleep 30
-    echo "Waiting for IBM OMS operator to install $count"
+    echo "INFO: Waiting for IBM OMS operator to install $count"
     count=$(( $count + 1 ))
 done
 
@@ -388,13 +390,13 @@ if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-man
     echo "ERROR: IBM OMS Operator did not start before timeout"
     exit 1;
 else
-    echo "IBM OMS Operator installed and running"
+    echo "INFO: IBM OMS Operator installed and running"
 fi
 
 ######
 # Create psql pod to manage DB (this will be used to create db and schema)
 if [[ -z $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME}) ]]; then
-    echo "Creating new psql client pod ${PSQL_POD_NAME}"
+    echo "INFO: Creating new psql client pod ${PSQL_POD_NAME}"
     cat << EOF >> ${WORKSPACE_DIR}/psql-pod.yaml
 apiVersion: v1
 kind: Pod
@@ -422,7 +424,7 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml
 else
-    echo "Using existing psql client pod ${PSQL_POD_NAME}"
+    echo "INFO: Using existing psql client pod ${PSQL_POD_NAME}"
 fi
 
 #####
@@ -466,8 +468,8 @@ fi
 
 #######
 # Create OMEnvironment
-if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
-    echo "Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
+if [[ $LICENSE == "accept" ]] && [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+    echo "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     cat << EOF >> omenvironment.yaml
 apiVersion: apps.oms.ibm.com/v1beta1
@@ -598,7 +600,7 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml
 else
-    echo "Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
+    echo "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
 fi
 
 #### Wait for pods to start

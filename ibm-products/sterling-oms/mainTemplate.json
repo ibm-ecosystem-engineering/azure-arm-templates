@@ -86,6 +86,17 @@
                 "description": "Flag to determine whether to install and configure Sterling OMS"
             }
         },
+        "acceptLicense": {
+            "type": "string",
+            "defaultValue": "decline",
+            "allowedValues": [
+                "accept",
+                "decline"
+            ],
+            "metadata": {
+                "description": "Accept license terms to install an instance of Sterling OMS"
+            }
+        },
         "vnetName": {
             "type": "string",
             "defaultValue": "[concat(parameters('namePrefix'),'-vnet')]",
@@ -717,6 +728,9 @@
                     },
                     "registryName": {
                         "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+                    },
+                    "acceptLicense": {
+                        "value": "[parameters('acceptLicense')]"
                     }
                 }
             }

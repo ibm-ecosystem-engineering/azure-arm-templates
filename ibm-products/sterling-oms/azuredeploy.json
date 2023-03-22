@@ -143,6 +143,17 @@
             "metadata": {
                 "description": "Github branch for linked deployments."
             }
+        },
+        "acceptLicense": {
+            "type": "string",
+            "defaultValue": "decline",
+            "allowedValues": [
+                "accept",
+                "decline"
+            ],
+            "metadata": {
+                "description": "Accept license terms to install an instance of Sterling OMS"
+            }
         }
         
     },
@@ -245,6 +256,10 @@
                     {
                         "name": "PSQL_HOST",
                         "value": "[parameters('psql-host')]"
+                    },
+                    {
+                        "name": "LICENSE",
+                        "value": "[parameters('acceptLicense')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",
