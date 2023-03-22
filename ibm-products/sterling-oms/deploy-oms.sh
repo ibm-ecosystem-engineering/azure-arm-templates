@@ -100,17 +100,40 @@ fi
 # Login to cluster
 
 if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
+    echo "INFO: Logging into OpenShift cluster $ARO_CLUSTER"
+    API_SERVER=$(az aro list --query "[?contains(name,'$ARO_CLUSTER')].[apiserverProfile.url]" -o tsv)
     CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-    ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
+    # Below loop added to allow authentication service to start on new clusters
+    count=0
+    while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD > /dev/null 2>&1 ; do
+        echo "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
+        sleep 60
+        count=$(( $count + 1 ))
+        if (( $count > 15 )); then
+            echo "ERROR: Timeout waiting to log into cluster"
+            exit 1;    
+        fi
+    done
+    echo "INFO: Successfully logged into cluster $ARO_CLUSTER"
 else   
     CURRENT_SERVER=$(${BIN_DIR}/oc status | grep server | awk '{printf $6}' | sed -e 's#^https://##; s#/##')
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
+    API_SERVER=$(az aro list --query "[?contains(name,'$CLUSTER')].[apiserverProfile.url]" -o tsv)
     if [[ $CURRENT_SERVER == $API_SERVER ]]; then
-        echo "Already logged into cluster"
+        echo "INFO: Already logged into cluster"
     else
         CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-        ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
+        # Below loop added to allow authentication service to start on new clusters
+        count=0
+        while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD > /dev/null 2>&1 ; do
+            echo "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
+            sleep 60
+            count=$(( $count + 1 ))
+            if (( $count > 15 )); then
+                echo "ERROR: Timeout waiting to log into cluster"
+                exit 1;    
+            fi
+        done
+        echo "INFO: Successfully logged into cluster $ARO_CLUSTER"
     fi
 fi
 
