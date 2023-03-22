@@ -468,6 +468,9 @@
                     },
                     "ingressVisibility": {
                         "value": "[parameters('ingressVisibility')]"
+                    },
+                    "createAzureFileStorage": {
+                        "value": false
                     }
                 }
             }
