@@ -738,6 +738,9 @@
                     },
                     "acceptLicense": {
                         "value": "[parameters('acceptLicense')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
                     }
                 }
             }
