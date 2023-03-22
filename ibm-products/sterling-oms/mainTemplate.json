@@ -316,10 +316,17 @@
             "metadata": {
                 "description": "Sterling OMS Image to install"
             }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
         }
     },
     "variables": {
-        "baseUrl": "https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/main/"
+        "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]"
     },
     "resources": [
         {
