@@ -24,9 +24,9 @@ if [[ -n $ENV_VAR_NOT_SET ]]; then
     exit 1
 fi
 
-# Setup workspace
+# Setup workspace default to Azure deployment script output shared filesystem
 if [[ -z $WORKSPACE_DIR ]]; then
-    WORKSPACE_DIR="/workspace"
+    WORKSPACE_DIR="/mnt/azscripts/azscriptoutput"
 fi
 mkdir -p $WORKSPACE_DIR
 
