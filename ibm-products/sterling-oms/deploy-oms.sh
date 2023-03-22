@@ -97,6 +97,10 @@ else
     echo "INFO: Using existing Azure CLI login"
 fi
 
+######
+# Pause to let cluster settle if just created before trying to login
+sleep 300
+
 #######
 # Login to cluster
 
