@@ -99,6 +99,7 @@ fi
 
 ######
 # Pause to let cluster settle if just created before trying to login
+echo "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
 sleep 300
 
 #######
