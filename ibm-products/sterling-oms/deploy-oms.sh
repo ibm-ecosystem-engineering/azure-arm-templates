@@ -99,8 +99,8 @@ fi
 
 ######
 # Pause to let cluster settle if just created before trying to login
-# echo "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
-# sleep 300
+echo "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
+sleep 300
 
 #######
 # Login to cluster
@@ -476,7 +476,10 @@ fi
 if [[ $LICENSE == "accept" ]] && [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
     echo "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
-    cat << EOF >> omenvironment.yaml
+    if [[ -f ${WORKSPACE_DIR}/omenvironment.yaml ]]; then
+        rm ${WORKSPACE_DIR}/omenvironment.yaml
+    fi
+    cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
 apiVersion: apps.oms.ibm.com/v1beta1
 kind: OMEnvironment
 metadata:
