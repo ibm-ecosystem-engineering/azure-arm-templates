@@ -1,16 +1,18 @@
-# A basic template for a Azure Red Hat OpenShift cluster
+# A basic template for a Azure Red Hat OpenShift (ARO) cluster
 
 This guide uses the Azure CLI tools. It is also possible to use the same template with the portal directly or PowerShell.
+
+This template includes an option, on by default, that will create a file share storage account and setup Azure file storage in the Azure Red Hat OpenShift cluster.
 
 ## Prerequisites
 
 - Have an Azure subscription with user administrator access
 - The subscription should have at least the following services resource providers registered:
-- Microsoft.Networks
-- Microsoft.Compute
-- Microsoft.Storage
-- Microsoft.RedHatOpenShift
-- Microsoft.Authorization
+    - Microsoft.Networks
+    - Microsoft.Compute
+    - Microsoft.Storage
+    - Microsoft.RedHatOpenShift
+    - Microsoft.Authorization
 - Have the Azure CLI tools downloaded locally
 - (Optional) Have `jq` installed if you want to use this to obtain some of the parameters per the below steps
 - Have a Red Hat account if you are going to access the Red Hat marketplace post installation
@@ -118,3 +120,7 @@ When you are finished with the environment. Perform the following steps to remov
     ```shell
     rm ./sp-details.json
     ```
+
+## Known limitations
+
+If you are deploying Azure file share storage class through this approach, the API ingress must be public as the Azure deployment script utilized to create the storage class does not support private VNets.
