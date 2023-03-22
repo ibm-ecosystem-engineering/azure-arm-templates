@@ -145,6 +145,17 @@ fi
 
 ######
 # Wait for cluster operators to finish deploying
+count=0
+while [[ $(${BIN_DIR}/oc get clusteroperators -o json | jq -r '.items[].status.conditions[] | select(.type=="Available") | .status' | grep False) ]]; do
+    echo "INFO: Waiting for cluster operators to finish installation. Waited $count minutes. Will wait up to 30 minutes."
+    sleep 60
+    count=$(( $count + 1 ))
+    if (( $count > 60 )); then
+        echo "ERROR: Timeout waiting for cluster operators to be available"
+        exit 1;    
+    fi
+done
+echo "INFO: All OpenShift cluster operators available"
 
 ######
 # Create required namespace
@@ -277,13 +288,7 @@ if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
 cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
-{
-    "auths":{
-        "$ACR_LOGIN_SERVER":{
-            "auth":"$ACR_PASSWORD"
-        }
-    }
-}
+{"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
     ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
 else
