@@ -10,7 +10,6 @@ function log-output() {
     echo ${MSG}
 }
 
-
 ######
 # Check environment variables
 ENV_VAR_NOT_SET=""
