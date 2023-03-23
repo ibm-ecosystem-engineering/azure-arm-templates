@@ -1,5 +1,54 @@
 #!/bin/bash
 
+function log-output() {
+    MSG=${1}
+
+    OUTPUT_DIR="/mnt/azscripts/azscriptoutput"
+    OUTPUT_FILE="script-output.log"
+    mkdir -p $OUTPUT_DIR
+
+    echo "$(date -u +"%Y-%m-%d %T") ${MSG}" >> ${OUTPUT_DIR}/${OUTPUT_FILE}
+    echo ${MSG}
+}
+
+function subscription_status() {
+    SUB_NAMESPACE=${1}
+    SUBSCRIPTION=${2}
+
+    CSV=$(${BIN_DIR}/oc get subscription -n ${SUB_NAMESPACE} ${SUBSCRIPTION} -o json | jq -r '.status.currentCSV')
+    if [[ "$CSV" == "null" ]]; then
+        STATUS="PendingCSV"
+    else
+        STATUS=$(${BIN_DIR}/oc get csv -n ${SUB_NAMESPACE} ${CSV} -o json | jq -r '.status.phase')
+    fi
+    echo $STATUS
+}
+
+function wait_for_subscription() {
+    SUB_NAMESPACE=${1}
+    export SUBSCRIPTION=${2}
+    
+    # Set default timeout of 15 minutes
+    if [[ -z $TIMEOUT ]]; then
+        TIMEOUT=15
+    else
+        TIMEOUT=${3}
+    fi
+
+    export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
+
+    count=0;
+    while [[ $(subscription_status $SUB_NAMESPACE $SUBSCRIPTION) != "Succeeded" ]]; do
+        log-output "INFO: Waiting for subscription $SUBSCRIPTION to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
+        sleep 30
+        count=$(( $count + 1 ))
+        if (( $count > $TIMEOUT_COUNT )); then
+            log-output "ERROR: Timeout exceeded waiting for subscription $SUBSCRIPTION to be ready"
+            exit 1
+        fi
+    done
+}
+
 ######
 # Check environment variables
 ENV_VAR_NOT_SET=""
@@ -20,11 +69,11 @@ if [[ -z $IBM_ENTITLEMENT_KEY ]]; then ENV_VAR_NOT_SET="IBM_ENTITLEMENT_KEY"; fi
 if [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
-    echo "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
+    log-output "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
     exit 1
 fi
 
-# Setup workspace
+# Setup workspace default to Azure deployment script output shared filesystem
 if [[ -z $WORKSPACE_DIR ]]; then
     WORKSPACE_DIR="/workspace"
 fi
@@ -47,6 +96,7 @@ if [[ -z $PSQL_POD_NAME ]]; then export PSQL_POD_NAME="psql-client"; fi
 if [[ -z $DB_NAME ]]; then export DB_NAME="oms"; fi
 if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
+if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 
 #####
 # Download OC and kubectl
@@ -59,18 +109,28 @@ OC_URL="https://mirror.openshift.com/pub/openshift-v4/${ARCH}/clients/ocp/stable
 
 # Download and install CLI's if they do not already exist
 if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
-    echo "Downloading and installing oc and kubectl"
+    log-output "INFO: Downloading and installing oc and kubectl"
     curl -sLo $TMP_DIR/openshift-client.tgz $OC_URL
 
     if ! tar tzf $TMP_DIR/openshift-client.tgz 1> /dev/null 2> /dev/null; then
-        echo "ERROR: Tar file from $OC_URL is corrupted"
+        log-output "ERROR: Tar file from $OC_URL is corrupted"
         exit 1
     fi
 
-    tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl
+    if ! error=$(tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl 2>&1) ; then
+        log-output "ERROR: Unable to extract oc or kubectl from tar file"
+        log-output "$error"
+    fi
 
-    mv ${TMP_DIR}/oc ${BIN_DIR}/oc
-    mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
+    if ! error=$(mv ${TMP_DIR}/oc ${BIN_DIR}/oc 2>&1) ; then
+        log-output "ERROR: Unable to move oc to $BIN_DIR"
+        log-output "$error"
+    fi
+
+    if ! error=$(mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl 2>&1) ; then
+        log-output "ERROR: Unabel to move kubectl to $BIN_DIR"
+        log-output "$error"
+    fi
 fi
 
 #######
@@ -80,51 +140,95 @@ if (( $? != 0 )); then
     # Login with service principal details
     az login --service-principal -u "$CLIENT_ID" -p "$CLIENT_SECRET" -t "$TENANT_ID" > /dev/null 2>&1
     if (( $? != 0 )); then
-        echo "ERROR: Unable to login to service principal. Check supplied details in credentials.properties."
+        log-output "ERROR: Unable to login to service principal. Check supplied details in credentials.properties."
         exit 1
     else
-        echo "Successfully logged on with service principal"
+        log-output "INFO: Successfully logged on with service principal"
     fi
     az account set --subscription "$SUBSCRIPTION_ID" > /dev/null 2>&1
     if (( $? != 0 )); then
-        echo "ERROR: Unable to use subscription id $SUBSCRIPTION_ID. Please check and try agian."
+        log-output "ERROR: Unable to use subscription id $SUBSCRIPTION_ID. Please check and try agian."
         exit 1
     else
-        echo "Successfully changed to subscription : $(az account show --query name -o tsv)"
+        log-output "INFO: Successfully changed to subscription : $(az account show --query name -o tsv)"
     fi
 else
-    echo "Using existing Azure CLI login"
+    log-output "INFO: Using existing Azure CLI login"
 fi
+
+######
+# Pause to let cluster settle if just created before trying to login
+log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
+sleep 600
 
 #######
 # Login to cluster
 
 if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
+    log-output "INFO: Logging into OpenShift cluster $ARO_CLUSTER"
+    API_SERVER=$(az aro list --query "[?contains(name,'$ARO_CLUSTER')].[apiserverProfile.url]" -o tsv)
     CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-    ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
+    # Below loop added to allow authentication service to start on new clusters
+    count=0
+    while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD 1> /dev/null 2> /dev/null ; do
+        log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
+        sleep 60
+        count=$(( $count + 1 ))
+        if (( $count > 15 )); then
+            log-output "ERROR: Timeout waiting to log into cluster"
+            exit 1;    
+        fi
+    done
+    log-output "INFO: Successfully logged into cluster $ARO_CLUSTER"
 else   
     CURRENT_SERVER=$(${BIN_DIR}/oc status | grep server | awk '{printf $6}' | sed -e 's#^https://##; s#/##')
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
+    API_SERVER=$(az aro list --query "[?contains(name,'$CLUSTER')].[apiserverProfile.url]" -o tsv)
     if [[ $CURRENT_SERVER == $API_SERVER ]]; then
-        echo "Already logged into cluster"
+        log-output "INFO: Already logged into cluster"
     else
         CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-        ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
+        # Below loop added to allow authentication service to start on new clusters
+        count=0
+        while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD > /dev/null 2>&1 ; do
+            log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
+            sleep 60
+            count=$(( $count + 1 ))
+            if (( $count > 15 )); then
+                log-output "ERROR: Timeout waiting to log into cluster"
+                exit 1;    
+            fi
+        done
+        log-output "INFO: Successfully logged into cluster $ARO_CLUSTER"
     fi
 fi
 
 ######
 # Wait for cluster operators to finish deploying
+count=0
+while [[ $(${BIN_DIR}/oc get clusteroperators -o json | jq -r '.items[].status.conditions[] | select(.type=="Available") | .status' | grep False) ]]; do
+    log-output "INFO: Waiting for cluster operators to finish installation. Waited $count minutes. Will wait up to 30 minutes."
+    sleep 60
+    count=$(( $count + 1 ))
+    if (( $count > 60 )); then
+        log-output "ERROR: Timeout waiting for cluster operators to be available"
+        exit 1;    
+    fi
+done
+log-output "INFO: All OpenShift cluster operators available"
 
 ######
 # Create required namespace
 CURRENT_NAMESPACE=$(${BIN_DIR}/oc get namespaces | grep $OMS_NAMESPACE)
 if [[ -z $CURRENT_NAMESPACE ]]; then
-    echo "Creating namespace"
-    ${BIN_DIR}/oc create namespace $OMS_NAMESPACE
+    log-output "INFO: Creating namespace"
+    if error=$(${BIN_DIR}/oc create namespace $OMS_NAMESPACE 2>&1) ; then
+        log-output "INFO: Successfully created namespace $OMS_NAMESPACE"
+    else
+        log-output "FAILED: Unable to create $OMS_NAMESPACE"
+        log-output "$error"
+    fi
 else
-    echo "Namespace $OMS_NAMESPACE already exists"
+    log-output "INFO: Namespace $OMS_NAMESPACE already exists"
 fi
 
 ######
@@ -136,16 +240,27 @@ export RESOURCE_GROUP_NAME=$RESOURCE_GROUP
 #####
 # Set ARO cluster permissions
 if [[ $(${BIN_DIR}/oc get clusterrole | grep azure-secret-reader) ]]; then
-    echo "Using existing cluster role"
+    log-output "INFO: Using existing cluster role"
 else
-    oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets
-    oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder
+    log-output "INFO: creating cluster role for Azure file storage"
+    if error=$(${BIN_DIR}/oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets 2>&1) ; then
+        log-output "INFO: Successfully created cluster role for storage"
+    else
+        log-output "FAILED: Unable to create cluster storage role"
+        log-output "$error"
+    fi
+    if error=$(${BIN_DIR}/oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder 2>&1) ; then
+        log-output "INFO: Successfully created policy for cluster role"
+    else
+        log-output "FAILED: Unable to create policy for cluster role"
+        log-output "$error"
+    fi
 fi
 
 #####
 # Create storage class
 if [[ -z $(${BIN_DIR}/oc get sc | grep $SC_NAME) ]]; then
-    echo "Creating Azure file storage"
+    log-output "INFO: Creating Azure file storage"
     cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -171,9 +286,14 @@ reclaimPolicy: Delete
 volumeBindingMode: Immediate
 EOF
 
-oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml 2>&1) ; then
+        log-output "INFO: Successfully created Azure file storage class"
+    else
+        log-output "FAILED: Unable to create Azure file storage class"
+        log-output "$error"
+    fi
 else
-    echo "Azure file storage already exists"
+    log-output "INFO: Azure file storage already exists"
 fi
 
 
@@ -187,7 +307,7 @@ export TRUSTSTOREPW="$ADMIN_PASSWORD"
 export KEYSTOREPW="$ADMIN_PASSWORD"
 
 if [[ -z $(${BIN_DIR}/oc get rolebindings -n $OMS_NAMESPACE | grep oms-rolebinding) ]]; then
-    echo "Creating OMS RBAC"
+    log-output "INFO: Creating OMS RBAC"
 cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -215,9 +335,14 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 EOF
 
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml 2>&1); then
+        log-output "INFO: Successfully created role and role binding for OMS"
+    else
+        log-output "FAILED: Unable to create either the role or the role binding"
+        log-output "$error"
+    fi
 else
-    echo "OMS RBAC already exists"
+    log-output "INFO: OMS RBAC already exists"
 fi
 
 if [[ -z $(${BIN_DIR}/oc get secrets -n $OMS_NAMESPACE | grep oms-secret) ]]; then
@@ -236,38 +361,47 @@ stringData:
   trustStorePassword: $TRUSTSTOREPW
   keyStorePassword: $KEYSTOREPW
 EOF
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml 2>&1) ; then
+        log-output "INFO: Successfully created OMS secret"
+    else
+        log-output "FAILED: Unable to create OMS secret"
+        log-output "$error"
+    fi
 else
-    echo "OMS Secret already exists"
+    log-output "INFO: OMS Secret already exists"
 fi
 
 # Get Azure container registry credentials
 if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
-    echo "Creating ACR Login Secret"
+    log-output "INFO: Creating Azure container registry login Secret"
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
 cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
-{
-    "auths":{
-        "$ACR_LOGIN_SERVER":{
-            "auth":"$ACR_PASSWORD"
-        }
-    }
-}
+{"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
-    ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
+    if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
+        log-output "INFO: Successfully created Azure container registry secret" 
+    else
+        log-output "FAILED: Unable to create Azure container registry secret"
+        log-output "$error"
+    fi
 else
-    echo "ACR login secret already created on cluster"
+    log-output "INFO: Azure container registry login secret already created on cluster"
 fi
 
 
 #######
 # Create entitlement key secret for image pull
 if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-key) ]]; then
-    echo "Creating entitlement key secret"
-    ${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
+    log-output "INFO: Creating entitlement key secret"
+    if error=$(${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE 2>&1) ; then
+        log-output "INFO: Successfully created IBM Entitlement Key docker registry secret"
+    else
+        log-output "FAILED: Unable to create IBM Entitlement Key docker registry secret"
+        log-output "$error"
+    fi
 else
-    echo "Using existing entitlement key secret"
+    log-output "INFO: Using existing entitlement key secret"
 fi
 
 ########
@@ -284,9 +418,9 @@ else
 fi
 
 if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
-    echo "Installing OMS Operator"
-    echo "Name        : $OPERATOR_NAME"
-    echo "Operator CSV: $OPERATOR_CSV"
+    log-output "INFO: Installing OMS Operator"
+    log-output "INFO: Name        : $OPERATOR_NAME"
+    log-output "INFO: Operator CSV: $OPERATOR_CSV"
 cat << EOF >> ${WORKSPACE_DIR}/install-oms-operator.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -321,15 +455,24 @@ spec:
   source: ibm-sterling-oms
   sourceNamespace: openshift-marketplace
 EOF
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed OMS operator"
+    else
+        log-output "FAILED: Unable to install OMS operator"
+        log-output "$error"
+    fi
 else
-    echo "IBM OMS Operator already installed"
+    log-output "INFO: IBM OMS Operator already installed"
 fi
+
+wait_for_subscription ${OMS_NAMESPACE} oms-operator
+log-output "INFO: OMS Operator subscription ready" 
+
 
 #######
 # Create OMS Persistent Volume
 if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
-    echo "Creating PVC for OMS"
+    log-output "INFO: Creating PVC for OMS"
 cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -346,32 +489,28 @@ spec:
   volumeMode: Filesystem
 EOF
 
-    oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml 2>&1 ) ; then
+        log-output "INFO: Successfully created OMS PVC" 
+    else
+        log-output "FAILED: Unable to create OMS PVC"
+        log-output "$error"
+    fi
 else
-    echo "PVC for OMS already exists"
+    log-output "INFO: PVC for OMS already exists"
 fi
-
-
-#######
-# Wait for operator to finish installing
-while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && (( $count < 60 )); do
-    sleep 30
-    echo "Waiting for IBM OMS operator to install $count"
-    count=$(( $count + 1 ))
-done
 
 # Check operator status
 if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]]; then
-    echo "ERROR: IBM OMS Operator did not start before timeout"
+    log-output "ERROR: IBM OMS Operator did not start before timeout"
     exit 1;
 else
-    echo "IBM OMS Operator installed and running"
+    log-output "INFO: IBM OMS Operator installed and running"
 fi
 
 ######
 # Create psql pod to manage DB (this will be used to create db and schema)
 if [[ -z $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME}) ]]; then
-    echo "Creating new psql client pod ${PSQL_POD_NAME}"
+    log-output "INFO: Creating new psql client pod ${PSQL_POD_NAME}"
     cat << EOF >> ${WORKSPACE_DIR}/psql-pod.yaml
 apiVersion: v1
 kind: Pod
@@ -397,19 +536,24 @@ spec:
         - name: SCHEMA_NAME
           value: ${SCHEMA_NAME}
 EOF
-    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml 2>&1 ) ; then
+        log-output "INFO: Successfully created psql client pod"
+    else
+        log-output "FAILED: Unable to create psql client pod"
+        log-output "$error"
+    fi
 else
-    echo "Using existing psql client pod ${PSQL_POD_NAME}"
+    log-output "INFO: Using existing psql client pod ${PSQL_POD_NAME}"
 fi
 
 #####
 # Wait for psql pod to start
 count=1;
-while [[ $(${BIN_DIR}/oc get pods -n oms | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
-    echo "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
+while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
+    log-output "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
     sleep 30
     if (( $count > 10 )); then
-        echo "ERROR: Timeout waiting for pod ${PSQL_POD_NAME} to start."
+        log-output "ERROR: Timeout waiting for pod ${PSQL_POD_NAME} to start."
         exit 1
     fi
 done
@@ -418,35 +562,48 @@ done
 # Create database and schema in db server
 
 # Confirm db server exists
-PSQL_NAME=$(echo ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
+PSQL_NAME=$(log-output ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
 if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
-    echo "ERROR: PostgreSQL database ${PSQL_NAME} not found"
+    log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
     exit 1
 else
     # Create database if it does not exist
     az postgres flexible-server db show --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1
     if (( $? != 0 )); then
-        echo "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
-        az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP
+        log-output "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
+        if error=$(az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP 2>&1) ; then
+            log-output "INFO: Successfully created database $DB_NAME on server $PSQL_NAME" 
+        else
+            log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
+            log-output "$error"
+        fi
     else
-        echo "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
+        log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
     fi
 
     # Create schema if it does not exist
     if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
-        echo "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
-        ${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;"
+        log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
+        if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
+            log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
+        else
+            log-output "FAILED: Unable to create schema $SCHEMA_NAME"
+            log-output "$error"
+        fi
     else
-        echo "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
+        log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
     fi
 fi
 
 #######
 # Create OMEnvironment
-if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
-    echo "Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
+if [[ $LICENSE == "accept" ]] && [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+    log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
-    cat << EOF >> omenvironment.yaml
+    if [[ -f ${WORKSPACE_DIR}/omenvironment.yaml ]]; then
+        rm ${WORKSPACE_DIR}/omenvironment.yaml
+    fi
+    cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
 apiVersion: apps.oms.ibm.com/v1beta1
 kind: OMEnvironment
 metadata:
@@ -573,9 +730,15 @@ spec:
         propertyList:
           yfs.yfs.ssi.enabled: N
 EOF
-    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed OMEnvironment instance"
+        log-output "INFO: Please check console for status"
+    else
+        log-output "FAILED: Unable to create OMEnvironment"
+        log-output "$error"
+    fi
 else
-    echo "Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
+    log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
 fi
 
 #### Wait for pods to start

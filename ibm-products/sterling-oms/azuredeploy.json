@@ -143,6 +143,17 @@
             "metadata": {
                 "description": "Github branch for linked deployments."
             }
+        },
+        "acceptLicense": {
+            "type": "string",
+            "defaultValue": "decline",
+            "allowedValues": [
+                "accept",
+                "decline"
+            ],
+            "metadata": {
+                "description": "Accept license terms to install an instance of Sterling OMS"
+            }
         }
         
     },
@@ -163,7 +174,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[concat('/subscriptions/',subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('managedIdName'))]": {}
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
                 }
             },
             "kind": "AzureCLI",
@@ -176,7 +187,7 @@
                     "storageAccountName": "[parameters('storageAccountName')]",
                     "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
                 },
-                "azCliVersion": "2.46.0",  
+                "azCliVersion": "2.45.0",  
                 "environmentVariables": [
                     {
                         "name": "CLIENT_ID",
@@ -211,10 +222,6 @@
                         "value": "[parameters('vnetName')]"
                     },
                     {
-                        "name": "SUBNET_PRIVATE_ENDPOINT_NAME",
-                        "value": "[parameters('endpointSubnetName')]"
-                    },
-                    {
                         "name": "ADMIN_PASSWORD",
                         "secureValue": "[parameters('adminPassword')]"
                     },
@@ -245,6 +252,10 @@
                     {
                         "name": "PSQL_HOST",
                         "value": "[parameters('psql-host')]"
+                    },
+                    {
+                        "name": "LICENSE",
+                        "value": "[parameters('acceptLicense')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",
