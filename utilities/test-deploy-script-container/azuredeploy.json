@@ -17,19 +17,6 @@
                 "description": "Location for deployment container"
             }
         },
-        "ibmEntitlementKey": {
-            "type": "securestring",
-            "metadata": {
-                "description": "Entitlement key for IBM container registry"
-            }
-        },
-        "psql-host": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-postgresql.postgres.database.azure.com')]",
-            "metadata": {
-                "description": "PostgreSQL FQDN address"
-            }
-        },
         "rgRoleGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
@@ -51,32 +38,6 @@
                 "description": "Name for the storage account for the script execution"
             }            
         },
-        "fileShareAccountName": {
-            "type": "string",
-            "metadata": {
-                "description": "Name of the storage account for the ARO file share"
-            }
-        },
-        "fileShareSKU": {
-            "type": "string",
-            "metadata": {
-                "description": "Storage SKU for the ARO file share"
-            }
-        },
-        "vnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-vnet')]",
-            "metadata": {
-                "description": "Name of the virtual network"
-            }
-        },
-        "endpointSubnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-endpoint-subnet')]",
-            "metadata": {
-                "description": "CIDR for the subnet if creating"
-            }
-        },
         "createManagedIdentity": {
             "type": "bool",
             "defaultValue": true,
@@ -91,76 +52,18 @@
                 "description": "Name of the managed identity used for deployment scripts"
             }
         },
-        "spClientId" : {
+        "azureCliVersion": {
             "type": "string",
+            "defaultValue": "2.45.0",
             "metadata": {
-                "description" : "The app ID of the Service Principal (client id)"
-            }
-        },
-        "spClientSecret": {
-            "type": "securestring",
-            "metadata": {
-                "description": "The service principal secret key."
-            }
-        },
-        "aroClusterName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-aro')]",
-            "metadata": {
-                "description": "Name of the ARO cluster"
-            }
-        },
-        "omsNamespace": {
-            "type": "string",
-            "defaultValue": "oms",
-            "metadata": {
-                "description": "Namespace for the Sterling OMS application"
-            }
-        },
-        "adminPassword": {
-            "type": "secureString",
-            "metadata": {
-                "description": "Default admin password for OMS Services"
-            }
-        },
-        "whichOMS": {
-            "type": "string",
-            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
-            "metadata": {
-                "description": "Sterling OMS Image"
-            }
-        },
-        "registryName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'registry')]",
-            "metadata": {
-                "description": "Name of the container registry"
-            }
-        },
-        "branch": {
-            "type": "string",
-            "defaultValue": "main",
-            "metadata": {
-                "description": "Github branch for linked deployments."
-            }
-        },
-        "acceptLicense": {
-            "type": "string",
-            "defaultValue": "decline",
-            "allowedValues": [
-                "accept",
-                "decline"
-            ],
-            "metadata": {
-                "description": "Accept license terms to install an instance of Sterling OMS"
+                "description": "Container image version to pull. Refer https://mcr.microsoft.com/v2/azure-cli/tags/list for list of available versions."
             }
         }
         
     },
     "variables": {
-      "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
       "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
-      "scriptName": "[concat(parameters('namePrefix'),'-oms-script')]",
+      "scriptName": "[concat(parameters('namePrefix'),'-script')]",
       "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
       "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
     },
@@ -187,79 +90,11 @@
                     "storageAccountName": "[parameters('storageAccountName')]",
                     "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
                 },
-                "azCliVersion": "2.45.0",  
+                "azCliVersion": "[parameters('azureCliVersion')]",  
                 "environmentVariables": [
-                    {
-                        "name": "CLIENT_ID",
-                        "value": "[parameters('spClientId')]"
-                    },
-                    {
-                        "name": "CLIENT_SECRET",
-                        "secureValue": "[parameters('spClientSecret')]"
-                    },
-                    {
-                        "name": "TENANT_ID",
-                        "value": "[subscription().tenantId]"
-                    },
-                    {
-                        "name": "SUBSCRIPTION_ID",
-                        "value": "[subscription().id]"
-                    },
                     {
                         "name": "RESOURCE_GROUP",
                         "value": "[resourceGroup().name]"
-                    },
-                    {
-                        "name": "ARO_CLUSTER",
-                        "value": "[parameters('aroClusterName')]"
-                    },
-                    {
-                        "name": "OMS_NAMESPACE",
-                        "value": "[parameters('omsNamespace')]"
-                    },
-                    {
-                        "name": "VNET_NAME",
-                        "value": "[parameters('vnetName')]"
-                    },
-                    {
-                        "name": "SUBNET_PRIVATE_ENDPOINT_NAME",
-                        "value": "[parameters('endpointSubnetName')]"
-                    },
-                    {
-                        "name": "ADMIN_PASSWORD",
-                        "secureValue": "[parameters('adminPassword')]"
-                    },
-                    {
-                        "name": "ACR_NAME",
-                        "value": "[parameters('registryName')]"
-                    },
-                    {
-                        "name": "WHICH_OMS",
-                        "value": "[parameters('whichOMS')]"
-                    },
-                    {
-                        "name": "STORAGE_ACCOUNT_NAME",
-                        "value": "[parameters('fileShareAccountName')]"
-                    },
-                    {
-                        "name": "FILE_TYPE",
-                        "value": "[parameters('fileShareSKU')]"
-                    },
-                    {
-                        "name": "SC_NAME",
-                        "value": "azure-file"
-                    },
-                    {
-                        "name": "IBM_ENTITLEMENT_KEY",
-                        "secureValue": "[parameters('ibmEntitlementKey')]"
-                    },
-                    {
-                        "name": "PSQL_HOST",
-                        "value": "[parameters('psql-host')]"
-                    },
-                    {
-                        "name": "LICENSE",
-                        "value": "[parameters('acceptLicense')]"
                     }
                 ],
                 "scriptContent": "while true; do sleep 30; done;",
