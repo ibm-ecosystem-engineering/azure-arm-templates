@@ -7,7 +7,7 @@ function log-output() {
     OUTPUT_FILE="script-output.log"
     mkdir -p $OUTPUT_DIR
 
-    echo "$(date -u +"%Y-%m-%d %T") ${MSG}" >> ${AZ_OUTPUT_DIR}/${OUTPUT_FILE}
+    echo "$(date -u +"%Y-%m-%d %T") ${MSG}" >> ${OUTPUT_DIR}/${OUTPUT_FILE}
     echo ${MSG}
 }
 
