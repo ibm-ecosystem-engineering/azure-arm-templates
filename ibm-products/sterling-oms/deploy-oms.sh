@@ -159,7 +159,7 @@ fi
 ######
 # Pause to let cluster settle if just created before trying to login
 log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
-#sleep 300
+sleep 600
 
 #######
 # Login to cluster
