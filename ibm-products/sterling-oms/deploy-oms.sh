@@ -3,11 +3,50 @@
 function log-output() {
     MSG=${1}
 
-    AZ_OUTPUT_DIR="/mnt/azscripts/azscriptoutput"
-    mkdir -p $AZ_OUTPUT_DIR
+    OUTPUT_DIR="/mnt/azscripts/azscriptoutput"
+    OUTPUT_FILE="script-output.log"
+    mkdir -p $OUTPUT_DIR
 
-    echo ${MSG} >> ${AZ_OUTPUT_DIR}/script-output.log
+    echo "$(date -u +"%Y-%m-%d %T") ${MSG}" >> ${AZ_OUTPUT_DIR}/${OUTPUT_FILE}
     echo ${MSG}
+}
+
+function subscription_status() {
+    SUB_NAMESPACE=${1}
+    SUBSCRIPTION=${2}
+
+    CSV=$(${BIN_DIR}/oc get subscription -n ${SUB_NAMESPACE} ${SUBSCRIPTION} -o json | jq -r '.status.currentCSV')
+    if [[ "$CSV" == "null" ]]; then
+        STATUS="PendingCSV"
+    else
+        STATUS=$(${BIN_DIR}/oc get csv -n ${SUB_NAMESPACE} ${CSV} -o json | jq -r '.status.phase')
+    fi
+    echo $STATUS
+}
+
+function wait_for_subscription() {
+    SUB_NAMESPACE=${1}
+    export SUBSCRIPTION=${2}
+    
+    # Set default timeout of 15 minutes
+    if [[ -z $TIMEOUT ]]; then
+        TIMEOUT=15
+    else
+        TIMEOUT=${3}
+    fi
+
+    export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
+
+    count=0;
+    while [[ $(subscription_status $SUB_NAMESPACE $SUBSCRIPTION) != "Succeeded" ]]; do
+        log-output "INFO: Waiting for subscription $SUBSCRIPTION to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
+        sleep 30
+        count=$(( $count + 1 ))
+        if (( $count > $TIMEOUT_COUNT )); then
+            log-output "ERROR: Timeout exceeded waiting for subscription $SUBSCRIPTION to be ready"
+            exit 1
+        fi
+    done
 }
 
 ######
@@ -78,10 +117,20 @@ if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
         exit 1
     fi
 
-    tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl
+    if ! error=$(tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl 2>&1) ; then
+        log-output "ERROR: Unable to extract oc or kubectl from tar file"
+        log-output "$error"
+    fi
 
-    mv ${TMP_DIR}/oc ${BIN_DIR}/oc
-    mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
+    if ! error=$(mv ${TMP_DIR}/oc ${BIN_DIR}/oc 2>&1) ; then
+        log-output "ERROR: Unable to move oc to $BIN_DIR"
+        log-output "$error"
+    fi
+
+    if ! error=$(mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl 2>&1) ; then
+        log-output "ERROR: Unabel to move kubectl to $BIN_DIR"
+        log-output "$error"
+    fi
 fi
 
 #######
@@ -110,7 +159,7 @@ fi
 ######
 # Pause to let cluster settle if just created before trying to login
 log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
-sleep 300
+#sleep 300
 
 #######
 # Login to cluster
@@ -172,7 +221,12 @@ log-output "INFO: All OpenShift cluster operators available"
 CURRENT_NAMESPACE=$(${BIN_DIR}/oc get namespaces | grep $OMS_NAMESPACE)
 if [[ -z $CURRENT_NAMESPACE ]]; then
     log-output "INFO: Creating namespace"
-    ${BIN_DIR}/oc create namespace $OMS_NAMESPACE
+    if error=$(${BIN_DIR}/oc create namespace $OMS_NAMESPACE 2>&1) ; then
+        log-output "INFO: Successfully created namespace $OMS_NAMESPACE"
+    else
+        log-output "FAILED: Unable to create $OMS_NAMESPACE"
+        log-output "$error"
+    fi
 else
     log-output "INFO: Namespace $OMS_NAMESPACE already exists"
 fi
@@ -189,8 +243,18 @@ if [[ $(${BIN_DIR}/oc get clusterrole | grep azure-secret-reader) ]]; then
     log-output "INFO: Using existing cluster role"
 else
     log-output "INFO: creating cluster role for Azure file storage"
-    oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets
-    oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder
+    if error=$(${BIN_DIR}/oc create clusterrole azure-secret-reader --verb=create,get --resource=secrets 2>&1) ; then
+        log-output "INFO: Successfully created cluster role for storage"
+    else
+        log-output "FAILED: Unable to create cluster storage role"
+        log-output "$error"
+    fi
+    if error=$(${BIN_DIR}/oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder 2>&1) ; then
+        log-output "INFO: Successfully created policy for cluster role"
+    else
+        log-output "FAILED: Unable to create policy for cluster role"
+        log-output "$error"
+    fi
 fi
 
 #####
@@ -222,7 +286,12 @@ reclaimPolicy: Delete
 volumeBindingMode: Immediate
 EOF
 
-oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml 2>&1) ; then
+        log-output "INFO: Successfully created Azure file storage class"
+    else
+        log-output "FAILED: Unable to create Azure file storage class"
+        log-output "$error"
+    fi
 else
     log-output "INFO: Azure file storage already exists"
 fi
@@ -266,7 +335,12 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 EOF
 
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-rbac.yaml 2>&1); then
+        log-output "INFO: Successfully created role and role binding for OMS"
+    else
+        log-output "FAILED: Unable to create either the role or the role binding"
+        log-output "$error"
+    fi
 else
     log-output "INFO: OMS RBAC already exists"
 fi
@@ -287,22 +361,32 @@ stringData:
   trustStorePassword: $TRUSTSTOREPW
   keyStorePassword: $KEYSTOREPW
 EOF
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml 2>&1) ; then
+        log-output "INFO: Successfully created OMS secret"
+    else
+        log-output "FAILED: Unable to create OMS secret"
+        log-output "$error"
+    fi
 else
     log-output "INFO: OMS Secret already exists"
 fi
 
 # Get Azure container registry credentials
 if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
-    log-output "INFO: Creating ACR Login Secret"
+    log-output "INFO: Creating Azure container registry login Secret"
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
 cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
 {"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
-    ${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg 
+    if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
+        log-output "INFO: Successfully created Azure container registry secret" 
+    else
+        log-output "FAILED: Unable to create Azure container registry secret"
+        log-output "$error"
+    fi
 else
-    log-output "INFO: ACR login secret already created on cluster"
+    log-output "INFO: Azure container registry login secret already created on cluster"
 fi
 
 
@@ -310,7 +394,12 @@ fi
 # Create entitlement key secret for image pull
 if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-key) ]]; then
     log-output "INFO: Creating entitlement key secret"
-    ${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE
+    if error=$(${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $OMS_NAMESPACE 2>&1) ; then
+        log-output "INFO: Successfully created IBM Entitlement Key docker registry secret"
+    else
+        log-output "FAILED: Unable to create IBM Entitlement Key docker registry secret"
+        log-output "$error"
+    fi
 else
     log-output "INFO: Using existing entitlement key secret"
 fi
@@ -366,10 +455,19 @@ spec:
   source: ibm-sterling-oms
   sourceNamespace: openshift-marketplace
 EOF
-    ${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed OMS operator"
+    else
+        log-output "FAILED: Unable to install OMS operator"
+        log-output "$error"
+    fi
 else
     log-output "INFO: IBM OMS Operator already installed"
 fi
+
+wait_for_subscription ${OMS_NAMESPACE} oms-operator
+log-output "INFO: OMS Operator subscription ready" 
+
 
 #######
 # Create OMS Persistent Volume
@@ -391,19 +489,15 @@ spec:
   volumeMode: Filesystem
 EOF
 
-    oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml 2>&1 ) ; then
+        log-output "INFO: Successfully created OMS PVC" 
+    else
+        log-output "FAILED: Unable to create OMS PVC"
+        log-output "$error"
+    fi
 else
     log-output "INFO: PVC for OMS already exists"
 fi
-
-
-#######
-# Wait for operator to finish installing
-while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]] && (( $count < 60 )); do
-    sleep 30
-    log-output "INFO: Waiting for IBM OMS operator to install $count"
-    count=$(( $count + 1 ))
-done
 
 # Check operator status
 if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]]; then
@@ -442,7 +536,12 @@ spec:
         - name: SCHEMA_NAME
           value: ${SCHEMA_NAME}
 EOF
-    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/psql-pod.yaml 2>&1 ) ; then
+        log-output "INFO: Successfully created psql client pod"
+    else
+        log-output "FAILED: Unable to create psql client pod"
+        log-output "$error"
+    fi
 else
     log-output "INFO: Using existing psql client pod ${PSQL_POD_NAME}"
 fi
@@ -450,7 +549,7 @@ fi
 #####
 # Wait for psql pod to start
 count=1;
-while [[ $(${BIN_DIR}/oc get pods -n oms | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
+while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
     log-output "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
     sleep 30
     if (( $count > 10 )); then
@@ -465,14 +564,19 @@ done
 # Confirm db server exists
 PSQL_NAME=$(log-output ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
 if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
-    log-output "ERROR: PostgreSQL database ${PSQL_NAME} not found"
+    log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
     exit 1
 else
     # Create database if it does not exist
     az postgres flexible-server db show --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1
     if (( $? != 0 )); then
         log-output "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
-        az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP
+        if error=$(az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP 2>&1) ; then
+            log-output "INFO: Successfully created database $DB_NAME on server $PSQL_NAME" 
+        else
+            log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
+            log-output "$error"
+        fi
     else
         log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
     fi
@@ -480,7 +584,12 @@ else
     # Create schema if it does not exist
     if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
         log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
-        ${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;"
+        if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
+            log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
+        else
+            log-output "FAILED: Unable to create schema $SCHEMA_NAME"
+            log-output "$error"
+        fi
     else
         log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
     fi
@@ -621,7 +730,13 @@ spec:
         propertyList:
           yfs.yfs.ssi.enabled: N
 EOF
-    ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml
+    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed OMEnvironment instance"
+        log-output "INFO: Please check console for status"
+    else
+        log-output "FAILED: Unable to create OMEnvironment"
+        log-output "$error"
+    fi
 else
     log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
 fi
