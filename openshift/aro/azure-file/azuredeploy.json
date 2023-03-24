@@ -11,6 +11,13 @@
                 "description": "Name of the ARO cluster"
             }
         },
+        "newCluster": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to indicate whether the cluster is newly created. Causes script to delay before starting. "
+            }
+        },
         "spClientId" : {
             "type": "string",
             "metadata": {
@@ -298,6 +305,10 @@
                     {
                         "name": "ARO_CLUSTER",
                         "value": "[parameters('aroClusterName')]"
+                    },
+                    {
+                        "name": "NEW_CLUSTER",
+                        "value": "[if(parameters('newCluster'),'true','false')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'openshift/aro/azure-file/scripts/az-files.sh')]",

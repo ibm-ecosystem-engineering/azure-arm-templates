@@ -24,6 +24,7 @@ if [[ -z $BIN_DIR ]]; then export BIN_DIR="/usr/local/bin"; fi
 if [[ -z $TMP_DIR ]]; then TMP_DIR="${WORKSPACE_DIR}/tmp"; fi
 if [[ -z $SC_NAME ]]; then SC_NAME="azure-file"; fi
 if [[ -z $FILE_TYPE ]]; then FILE_TYPE="Premium_LRS"; fi
+if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER=false; fi
 
 # Setup workspace
 mkdir -p $WORKSPACE_DIR
@@ -75,6 +76,12 @@ if (( $? != 0 )); then
     fi
 else
     echo "INFO: Using existing Azure CLI login"
+fi
+
+##### 
+# Sleep to allow cluster to apply certificates if a new cluster
+if [[ $NEW_CLUSTER = true ]]; then
+    sleep 600
 fi
 
 #######

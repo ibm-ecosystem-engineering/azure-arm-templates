@@ -394,6 +394,9 @@
                     },
                     "branch": {
                         "value": "[parameters('branch')]"
+                    },
+                    "newCluster": {
+                        "value": true
                     }
                 }
             }
