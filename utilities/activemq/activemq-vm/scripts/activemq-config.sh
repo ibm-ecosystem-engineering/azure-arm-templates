@@ -3,10 +3,11 @@
 # Exit if no password provided
 if [[ -z $1 ]]; then
     echo "ERROR: Missing argument"
-    echo "Usage: $0 PASSWORD VERSION"
+    echo "Usage: $0 PASSWORD VERSION NEW_VM"
     echo "   where "
     echo "         PASSWORD is the MQ admin password to be set"
     echo "         VERSION is the version fo ActiveMQ to be installed"
+    echo "         NEW_VM is either true or false to indicate whether the VM being deployed to is new or existing"
     exit 1;
 fi
 
@@ -21,6 +22,12 @@ export ACTIVEMQ_HOME="/opt/activemq"
 export PASSWORD=$1
 export TMP_DIR="/tmp"
 export BRANCH="initial-version"
+
+# Delay start if a new build to let cloud-init scripts finish
+if [[ -z $3 ]]; then NEW_VM=false; else NEW_VM=$3; fi
+if [[ $NEW_VM == true ]]; then
+    sleep 120
+fi
 
 # Update software repo
 sudo apt-get update
