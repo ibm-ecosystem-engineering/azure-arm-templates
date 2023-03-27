@@ -91,13 +91,13 @@
                 "TrustedLaunch"
             ],
             "metadata": {
-                "description": "Security type for virtual machine"
+                "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
             }
         },
         "mqPassword": {
             "type": "securestring",
             "metadata": {
-                "description": "Password for MQ administrator"
+                "description": "Password for ActiveMQ administrator"
             }
         },
         "vmNsgSecurityRules": {
@@ -169,7 +169,8 @@
             "allowedValues": [
                 "Ubuntu 18.04 LTS",
                 "Ubuntu 20.04 LTS",
-                "Ubuntu 22.04 LTS"
+                "Ubuntu 22.04 LTS",
+                "RHEL 8.6"
             ],
             "metadata": {
                 "description": "Operating system version"
@@ -177,7 +178,7 @@
         },
         "branch": {
             "type": "string",
-            "defaultValue": "initial-version",
+            "defaultValue": "main",
             "metadata": {
                 "description": "GitHub branch for script URI"
             }
@@ -195,12 +196,20 @@
             "metadata": {
                 "description": "ActiveMQ version to be installed."
             }
+        },
+        "createPublicIP": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to indicate whether a public ip address should be created."
+            }
         }
     },
     "variables": {
         "vmName": "[concat(parameters('namePrefix'),'-vm')]",
         "nsgName": "[concat(parameters('namePrefix'), '-nsg')]",
         "nicName": "[concat(parameters('namePrefix'),'-nic')]",
+        "publicIPName": "[concat(parameters('namePrefix'),'-pip')]",
         "linuxConfigSSH": {
             "disablePasswordAuthentication": true,
             "ssh": {
@@ -233,6 +242,12 @@
                 "offer": "0001-com-ubuntu-server-jammy",
                 "sku": "22_04-lts-gen2",
                 "version": "latest"
+            },
+            "RHEL 8.6": {
+                "publisher": "RedHat",
+                "offer": "RHEL",
+                "sku": "8_6",
+                "version": "latest"
             }
         },
         "securityProfile": {
@@ -241,6 +256,9 @@
                 "vTpmEnabled": true
             },
             "securityType": "[parameters('securityType')]"
+        },
+        "publicIP": {
+            "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
         }
     },
     "resources": [
@@ -272,6 +290,21 @@
             ]
         },
         {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('createPublicIP')]",
+            "name": "[variables('publicIPName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "deleteOption": "Delete"
+            }
+        },
+        {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2022-07-01",
             "name": "[variables('nicName')]",
@@ -284,6 +317,7 @@
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
                             },
+                            "publicIPAddress": "[if(parameters('createPublicIP'),variables('publicIP'),json('null'))]",
                             "privateIPAllocationMethod": "Dynamic"
                         }
                     }
@@ -294,7 +328,8 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
             ]
         },
         {
@@ -354,8 +389,9 @@
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
             "apiVersion": "2022-03-01",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'Canonical'), bool('true'), bool('false'))]",
             "location": "[parameters('location')]",
-            "name": "[concat(variables('vmName'),'/','installActiveMQ')]",
+            "name": "[concat(variables('vmName'),'/','installActiveMQ-ubuntu')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
             ],
@@ -368,7 +404,29 @@
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'activemq-config.sh')]"
                     ],
-                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
+                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2022-03-01",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false'))]",
+            "location": "[parameters('location')]",
+            "name": "[concat(variables('vmName'),'/','installActiveMQ-rhel')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[concat(parameters('scriptURI'),'activemq-rhel.sh')]"
+                    ],
+                    "commandToExecute": "[concat('/bin/bash activemq-rhel.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
                 }
             }
         }
