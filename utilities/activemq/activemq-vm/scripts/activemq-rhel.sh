@@ -81,10 +81,8 @@ sudo mv $TMP_DIR/jetty-realm.properties $ACTIVEMQ_HOME/conf/jetty-realm.properti
 sudo chown -R activemq:activemq $ACTIVEMQ_HOME
 
 # Allow selinux to run activemq
-#sudo ausearch -c '(activemq)' --raw | audit2allow -M activemq
-#sudo semodule -X 300 -i activemq.pp
-sudo chcon -t bin_t ${ACTIVEMQ_HOME}/bin/
 sudo semanage fcontext -a -t bin_t "${ACTIVEMQ_HOME}/bin(/.*)?"
+sudo restorecon -R ${ACTIVEMQ_HOME}/bin
 
 # Open firewall for port 8161
 sudo firewall-cmd --zone=public --add-port=8161/tcp --permanent
