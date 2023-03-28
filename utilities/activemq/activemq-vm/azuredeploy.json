@@ -201,6 +201,13 @@
                 "description": "Flag to indicate whether a public ip address should be created."
             }
         },
+        "publicIPName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('namePrefix'),'-ip')]",
+            "metadata": {
+                "description": "Name for the public IP address if creating."
+            }
+        },
         "domainName": {
             "type": "string",
             "defaultValue": "[toLower( concat(parameters('namePrefix'),uniqueString(resourceGroup().name)) )]",
@@ -213,7 +220,6 @@
         "vmName": "[concat(parameters('namePrefix'),'-vm')]",
         "nsgName": "[concat(parameters('namePrefix'), '-nsg')]",
         "nicName": "[concat(parameters('namePrefix'),'-nic')]",
-        "publicIPName": "[concat(parameters('namePrefix'),'-pip')]",
         "linuxConfigSSH": {
             "disablePasswordAuthentication": true,
             "ssh": {
@@ -262,7 +268,7 @@
             "securityType": "[parameters('securityType')]"
         },
         "publicIP": {
-            "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
+            "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName'))]"
         },
         "vnetId": {
             "new": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
@@ -302,7 +308,7 @@
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2022-07-01",
             "condition": "[parameters('createPublicIP')]",
-            "name": "[variables('publicIPName')]",
+            "name": "[parameters('publicIPName')]",
             "location": "[parameters('location')]",
             "sku": {
                 "name": "Standard",
@@ -347,7 +353,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
-                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName'))]"
             ]
         },
         {
