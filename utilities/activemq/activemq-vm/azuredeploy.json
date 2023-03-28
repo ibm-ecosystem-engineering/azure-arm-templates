@@ -24,18 +24,15 @@
                 "description": "Virtual network name"
             }
         },
-        "createVNet":{
-            "type": "bool",
-            "defaultValue": true,
+        "virtualNetworkNewOrExisting":{
+            "type": "string",
+            "defaultValue": "new",
+            "allowedValues": [
+                "new",
+                "existing"
+            ],
             "metadata": {
                 "description": "Flag to indicate whether a new virtual network should be created (true), or use an existing one (false)."
-            }
-        },
-        "createSubnet": {
-            "type": "bool",
-            "defaultValue": true,
-            "metadata": {
-                "description": "Flag to determine whether to create a new subnet (true), or use an existing one (false)."
             }
         },
         "vnetCIDR": {
@@ -266,13 +263,18 @@
         },
         "publicIP": {
             "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
-        }
+        },
+        "vnetId": {
+            "new": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
+            "existing": "[resourceId(parameters('vnetName'),'Microsoft.Network/virtualNetworks',parameters('vnetName'))]"
+        },
+        "subnetId": "[concat(variables('vnetId')[parameters('virtualNetworkNewOrExisting')],'/subnets/',parameters('subnetName'))]"
     },
     "resources": [
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2020-11-01",
-            "condition": "[parameters('createVNet')]",
+            "condition": "[equals(parameters('virtualNetworkNewOrExisting'),'new')]",
             "comments": "Create a new virtual network if requested.",
             "name": "[parameters('vnetName')]",
             "location": "[parameters('location')]",
@@ -287,7 +289,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2020-11-01",
-            "condition": "[parameters('createSubnet')]",
+            "condition": "[equals(parameters('virtualNetworkNewOrExisting'),'new')]",
             "name": "[concat(parameters('vnetName'),'/',parameters('subnetName'))]",
             "properties": {
                 "addressPrefix": "[parameters('subnetCIDR')]"
@@ -331,7 +333,7 @@
                         "name": "ipconfig1",
                         "properties": {
                             "subnet": {
-                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                                "id": "[variables('subnetId')]"
                             },
                             "publicIPAddress": "[if(parameters('createPublicIP'),variables('publicIP'),json('null'))]",
                             "privateIPAllocationMethod": "Dynamic"
