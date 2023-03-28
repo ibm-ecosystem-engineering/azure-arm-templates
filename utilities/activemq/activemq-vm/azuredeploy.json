@@ -160,7 +160,7 @@
                 "1", "2", "3"
             ],
             "metadata": {
-                "description": "Availability zone for the Dev VM"
+                "description": "Availability zone for the VM"
             }
         },
         "vmOSVersion": {
@@ -202,6 +202,13 @@
             "defaultValue": false,
             "metadata": {
                 "description": "Flag to indicate whether a public ip address should be created."
+            }
+        },
+        "domainName": {
+            "type": "string",
+            "defaultValue": "[toLower( concat(parameters('namePrefix'),uniqueString(resourceGroup().name)) )]",
+            "metadata": {
+                "description": "Domain name prefix for the public IP address"
             }
         }
     },
@@ -299,9 +306,18 @@
                 "name": "Standard",
                 "tier": "Regional"
             },
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
             "properties": {
                 "publicIPAllocationMethod": "Static",
-                "deleteOption": "Delete"
+                "deleteOption": "Delete",
+                "publicIPAddressVersion": "IPv4",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('domainName')]"
+                }
             }
         },
         {
