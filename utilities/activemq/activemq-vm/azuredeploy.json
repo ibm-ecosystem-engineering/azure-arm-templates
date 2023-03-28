@@ -71,9 +71,9 @@
         },
         "authType": {
             "type": "string",
-            "defaultValue": "sshkey",
+            "defaultValue": "sshPublicKey",
             "allowedValues": [
-                "sshkey",
+                "sshPublicKey",
                 "password"
             ],
             "metadata": {
@@ -394,7 +394,7 @@
                     "computerName": "[variables('vmName')]",
                     "adminUsername": "[parameters('adminUserName')]",
                     "adminPassword": "[parameters('adminPassword')]",
-                    "linuxConfiguration": "[if(equals(parameters('authType'), 'sshkey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
+                    "linuxConfiguration": "[if(equals(parameters('authType'), 'sshPublicKey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
                 },
                 "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'),variables('securityProfile'),json('null'))]",
                 "diagnosticsProfile": {
