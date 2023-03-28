@@ -1,0 +1,366 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "basics": [
+            {
+                "name": "namePrefix",
+                "type": "Microsoft.Common.TextBox",
+                "label": "Name Prefix",
+                "defaultValue": "",
+                "toolTip": "Prefix for created resources."
+            }
+         ],
+        "steps": [
+            {
+                "name": "networking",
+                "label": "Network Settings",
+                "elements": [
+					{
+                        "name": "publicIP",
+                        "type": "Microsoft.Network.PublicIpAddressCombo",
+                        "label": {
+                          "publicIpAddress": "Public IP address",
+                          "domainNameLabel": "Domain name label"
+                        },
+                        "toolTip": {
+                          "publicIpAddress": "",
+                          "domainNameLabel": ""
+                        },
+                        "defaultValue": {
+                          "publicIpAddressName": "ip01",
+                          "domainNameLabel": ""
+                        },
+                        "constraints": {
+                          "required": {
+                            "domainNameLabel": true
+                          }
+                        },
+                        "options": {
+                          "hideNone": false,
+                          "hideDomainNameLabel": false,
+                          "hideExisting": true
+                        },
+                        "visible": true
+                    },
+                    {
+                        "name": "vnet",
+                        "type": "Microsoft.Network.VirtualNetworkCombo",
+                        "label": {
+                            "virtualNetwork": "Virtual network",
+                            "subnets": "Subnets"
+                        },
+                        "toolTip": {
+                            "virtualNetwork": "",
+                            "subnets": ""
+                        },
+                        "defaultValue": {
+                            "name": "vnet",
+                            "addressPrefixSize": "/20"
+                        },
+                        "constraints": {
+                            "minAddressPrefixSize": "/20"
+                        },
+                        "options": {
+                            "hideExisting": false
+                        },
+                        "subnets": {
+                            "vmSubnet": {
+                                "label": "VM Subnet",
+                                "defaultValue": {
+                                    "name": "vm-subnet",
+                                    "addressPrefixSize": "/24"
+                                },
+                                "constraints": {
+                                    "minAddressPrefixSize": "/24",
+                                    "minAddressCount": 3,
+                                    "requireContiguousAddresses": true
+                                }
+                            }
+                        },
+                        "visible": true
+					} 
+                ]
+            },
+			{
+				"name": "vm",
+				"label": "Virtual Machine Settings",
+				"elements": [
+					{
+                        "name": "osType",
+                        "type": "Microsoft.Common.DropDown",
+                        "label": "Operating System",
+                        "toolTip": "",
+                        "multiselect": false,
+                        "defaultValue": "Ubuntu 20.04 LTS",
+                        "constraints": {
+                            "allowedValues": [
+                                {
+                                    "label": "Ubuntu 18.04 LTS",
+                                    "value": "Ubuntu 18.04 LTS"
+                                },
+                                {
+                                    "label": "Ubuntu 20.04 LTS",
+                                    "value": "Ubuntu 20.04 LTS"
+                                },
+                                {
+                                    "label": "Ubuntu 22.04 LTS",
+                                    "value": "Ubuntu 22.04 LTS"
+                                },
+                                {
+                                    "label": "RHEL 8.6",
+                                    "value": "RHEL 8.6"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "diskType",
+                        "type": "Microsoft.Common.DropDown",
+                        "label": "OS Disk Type",
+                        "toolTip": "",
+                        "multiselect": false,
+                        "defaultValue": "Premium_LRS",
+                        "constraints": {
+                            "allowedValues": [
+                                {
+                                    "label": "Premium_LRS",
+                                    "value": "Premium_LRS"
+                                },
+                                {
+                                    "label": "Premium_ZRS",
+                                    "value": "Premium_ZRS"
+                                },
+                                {
+                                    "label": "Standard_LRS",
+                                    "value": "Standard_LRS"
+                                },
+                                {
+                                    "label": "StandardSSD_LRS",
+                                    "value": "StandardSSD_LRS"
+                                },
+                                {
+                                    "label": "StandardSSD_ZRS",
+                                    "value": "StandardSSD_ZRS"
+                                },
+                                {
+                                    "label": "UltraSSD_LRS",
+                                    "value": "UltraSSD_LRS"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "securityProfile",
+                        "type": "Microsoft.Common.OptionsGroup",
+                        "label": "Security Profile",
+                        "defaultValue": "Standard",
+                        "toolTip": "Trusted not usable with RHEL image.",
+                        "constraints": {
+                          "allowedValues": [
+                            {
+                              "label": "Standard",
+                              "value": "Standard"
+                            },
+                            {
+                              "label": "Trusted Launch",
+                              "value": "TrustedLaunch"
+                            }
+                          ],
+                          "required": true
+                        },
+                        "visible": true
+                    },
+                    {
+						"name": "vmSize",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "VM Size",
+						"toolTip": "",
+						"recommendedSizes": [
+							"Standard_D2s_v3",
+							"Standard_D4s_v3",
+							"Standard_D8s_v3"
+						],
+						"constraints": {
+							"allowedSizes": [
+                                "Standard_D2s_v3",
+                                "Standard_D4s_v3",
+                                "Standard_D8s_v3",
+                                "Standard_D16s_v3",
+                                "Standard_D32s_v3"
+                            ]
+						},
+						"options": {
+							"hideDiskTypeFilter": false
+						},
+						"osPlatform": "Linux",
+						"count": 1,
+						"visible": true
+					},
+                    {
+                        "name": "vmZone",
+                        "type": "Microsoft.Common.OptionsGroup",
+                        "label": "Virtual Machine Zone",
+                        "defaultValue": "Zone One",
+                        "toolTip": "",
+                        "constraints": {
+                          "allowedValues": [
+                            {
+                              "label": "Zone One",
+                              "value": "1"
+                            },
+                            {
+                              "label": "Zone Two",
+                              "value": "2"
+                            },
+                            {
+                              "label": "Zone Three",
+                              "value": "3"
+                            }
+                          ],
+                          "required": true
+                        },
+                        "visible": true
+                    },
+                    {
+                        "name": "userName",
+                        "type": "Microsoft.Compute.UserNameTextBox",
+                        "label": "User name",
+                        "defaultValue": "azureuser",
+                        "toolTip": "",
+                        "osPlatform": "Linux",
+                        "constraints": {
+                            "required": true,
+                            "regex": "^[a-z0-9A-Z]{1,30}$",
+                            "validationMessage": "Only alphanumeric characters are allowed, and the value must be 1-30 characters long."
+                        },
+                        "visible": true
+
+                    },
+                    {
+                        "name": "vmCredentials",
+                        "type": "Microsoft.Compute.CredentialsCombo",
+                        "label": {
+                          "authenticationType": "Authentication type",
+                          "password": "Password",
+                          "confirmPassword": "Confirm password",
+                          "sshPublicKey": "SSH public key"
+                        },
+                        "toolTip": {
+                          "authenticationType": "",
+                          "password": "",
+                          "sshPublicKey": ""
+                        },
+                        "constraints": {
+                          "required": true,
+                          "customPasswordRegex": "^(?=.*[0-9A-Za-z._!@#$%^&*])(?=.*\\d)[0-9A-Za-z._!@#$%^&*\\d]{8,}$",
+                          "customValidationMessage": "The password must be alphanumeric, contain at least 12 characters, and have at least 1 letter and 1 number."
+                        },
+                        "options": {
+                          "hideConfirmation": false,
+                          "hidePassword": false
+                        },
+                        "osPlatform": "Linux",
+                        "visible": true
+                    }
+				]
+			},
+            {
+                "name": "activemq",
+                "label": "ActiveMQ Settings",
+                "elements": [
+                    {
+                        "name": "activeMQVersion",
+                        "type": "Microsoft.Common.DropDown",
+                        "label": "ActiveMQ Version",
+                        "defaultValue": "5.16.3",
+                        "toolTip": "",
+                        "constraints": {
+                            "allowedValues": [
+                                {
+                                    "label": "5.16.3",
+                                    "value": "5.16.3"
+                                },
+                                {
+                                    "label": "5.17.4",
+                                    "value": "5.17.4"
+                                },
+                                {
+                                    "label": "5.18.0",
+                                    "value": "5.18.0"
+                                }
+                            ]
+                        }
+                    },
+                    {
+						"name": "adminPassword",
+						"type": "Microsoft.Common.PasswordBox",
+						"label": {
+							"password": "Admin Password",
+							"confirmPassword": "Confirm Admin Password"
+						},
+						"toolTip": "Password to be used for MQ applicatino admin user.",
+						"constraints": {
+							"required": true,
+							"regex": "^(?=.*[0-9A-Za-z._!@#$%^&*])(?=.*\\d)[0-9A-Za-z._!@#$%^&*\\d]{8,}$",
+							"validationMessage": "The password must be alphanumeric, contain at least 8 characters, and have at least 1 letter and 1 number."
+						},
+						"options": {
+							"hideConfirmation": false
+						},
+						"visible": true
+					}
+                ]
+            },
+            {
+                "name": "developer",
+                "label": "Developer",
+                "elements": [
+                    {
+                        "name": "branch",
+                        "type": "Microsoft.Common.TextBox",
+                        "label": "GitHub Branch",
+                        "defaultValue": "main",
+                        "toolTip": "",
+                        "placeholder": "",
+                        "multiLine": false,
+                        "constraints": {
+                          "required": true,
+                          "validations": [
+                            {
+                              "regex": "^[a-z0-9A-Z-._/]{1,30}$",
+                              "message": "Only alphanumeric characters, dash, period, underscore or forward slash are allowed."
+                            }
+                          ]
+                        },
+                        "visible": true
+                      }
+                ]
+            }
+         ],
+        "outputs": {
+            "namePrefix": "[basics('namePrefix')]",
+            "location": "[location()]",
+            "vnetName": "[steps('networking').vnet.name]",
+            "virtualNetworkNewOrExisting": "[steps('networking').vnet.newOrExisting]",
+            "vnetCIDR": "[first( steps('networking').vnet.addressPrefixes )]",
+            "subnetName": "[steps('networking').vnet.subnets.vmSubnet.name]",
+            "subnetCIDR": "[steps('networking').vnet.subnets.vmSubnet.addressPrefix]",
+            "adminUserName": "[steps('vm').userName]",
+            "adminPassword": "[if( equals( steps('vm').vmCredentials.authenticationType, 'sshPublicKey' ), steps('vm').vmCredentials.sshPublicKey , steps('vm').vmCredentials.password )]",
+            "authType": "[steps('vm').vmCredentials.authenticationType]",
+            "securityType": "[steps('vm').securityProfile]",
+            "vmSize": "[steps('vm').vmSize]",
+            "vmDiskType": "[steps('vm').diskType]",
+            "vmZone": "[steps('vm').vmZone]",
+            "vmOSVersion": "[steps('vm').osType]",
+            "mqPassword": "[steps('activemq').adminPassword]",
+            "branch": "[steps('developer').branch]",
+            "activemqVersion": "[steps('activemq').activeMQVersion]",
+            "createPublicIP": "[if( equals( steps('networking').publicIP.newOrExistingOrNone, 'new' ), true, false)]",
+            "publicIPName": "[steps('networking').publicIP.name]",
+            "domainName": "[steps('networking').publicIP.domainNameLabel]"
+         }
+    }
+}

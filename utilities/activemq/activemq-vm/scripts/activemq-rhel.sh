@@ -1,4 +1,10 @@
 #!/bin/bash
+# 
+# This script installs ActiveMQ onto a RHEL 8 server
+#
+# Author: Rich Ehrhardt
+# Date: 24 March 2023
+#
 
 # Exit if no password provided
 if [[ -z $1 ]]; then
@@ -21,7 +27,6 @@ fi
 export ACTIVEMQ_HOME="/opt/activemq"
 export PASSWORD=$1
 export TMP_DIR="/tmp"
-export BRANCH="initial-version"
 
 # Delay start if a new build to let cloud-init scripts finish
 if [[ -z $3 ]]; then NEW_VM=false; else NEW_VM=$3; fi
@@ -29,20 +34,21 @@ if [[ $NEW_VM == true ]]; then
     sleep 120
 fi
 
-# Update software repo
-sudo apt-get update
+# Update software
+sudo yum -y update
 
-# Install openjdk and wget
-sudo apt-get install -y openjdk-11-jre wget
+# Install javajdk
+sudo yum -y install java-11-openjdk
 
-# Install Apache ActiveMQ
+# Install active MQ
 sudo mkdir -p $ACTIVEMQ_HOME
-sudo addgroup --quiet --system activemq
-sudo adduser --quiet --system --ingroup activemq --no-create-home --disabled-password activemq
+sudo groupadd --system activemq
+sudo useradd --system -g activemq --no-create-home activemq
 wget -P $TMP_DIR http://archive.apache.org/dist/activemq/$VERSION/apache-activemq-$VERSION-bin.tar.gz
 sudo tar -xvzf $TMP_DIR/apache-activemq-$VERSION-bin.tar.gz -C $TMP_DIR
 sudo mv $TMP_DIR/apache-activemq-$VERSION/* $ACTIVEMQ_HOME
 
+# Setup activemq service
 cat << EOF >> $TMP_DIR/activemq.service
 [Unit]
 Description=Apache ActiveMQ
@@ -53,12 +59,13 @@ Type=forking
 User=activemq
 Group=activemq
 
+WorkingDirectory=$ACTIVEMQ_HOME/bin
 ExecStart=$ACTIVEMQ_HOME/bin/activemq start
 ExecStop=$ACTIVEMQ_HOME/bin/activemq stop
+Restart=on-abort
 
 [Install]
 WantedBy=multi-user.target
-
 EOF
 
 sudo cp $TMP_DIR/activemq.service /etc/systemd/system/
@@ -67,21 +74,20 @@ sudo cp $TMP_DIR/activemq.service /etc/systemd/system/
 sudo cat $ACTIVEMQ_HOME/conf/jetty.xml | sed 's/property name=\"host\" value=\"127.0.0.1\"/property name=\"host" value=\"0.0.0.0\"/g' > $TMP_DIR/jetty-updated.xml
 sudo mv $TMP_DIR/jetty-updated.xml $ACTIVEMQ_HOME/conf/jetty.xml
 
-# Configure MQ Access credentials
+# Configure properties
 sudo cat $ACTIVEMQ_HOME/conf/jetty-realm.properties | sed "s/admin: admin, admin/admin: $PASSWORD, admin/g" | sed "s/user: user, user/user: $PASSWORD, user/g" > $TMP_DIR/jetty-realm.properties
 sudo mv $TMP_DIR/jetty-realm.properties $ACTIVEMQ_HOME/conf/jetty-realm.properties
 
-# Configure initial queue
-wget -P $TMP_DIR https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/$BRANCH/utilities/activemq/activemq-vm/files/activemq.xml
-sudo cp $TMP_DIR/activemq.xml $ACTIVEMQ_HOME/conf/activemq.xml
-
-# Configure JNDI access
-
-
-# Set file permissions to activemq user
 sudo chown -R activemq:activemq $ACTIVEMQ_HOME
 
-# Load activeMQ as a daemon
+# Allow selinux to run activemq
+sudo semanage fcontext -a -t bin_t "${ACTIVEMQ_HOME}/bin(/.*)?"
+sudo restorecon -R ${ACTIVEMQ_HOME}/bin
+
+# Open firewall for port 8161
+sudo firewall-cmd --zone=public --add-port=8161/tcp --permanent
+sudo firewall-cmd --reload
+
+# Load activemq daemon
 sudo systemctl daemon-reload
 sudo systemctl start activemq
-sudo systemctl enable activemq

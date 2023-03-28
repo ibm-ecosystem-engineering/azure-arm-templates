@@ -24,18 +24,15 @@
                 "description": "Virtual network name"
             }
         },
-        "createVNet":{
-            "type": "bool",
-            "defaultValue": true,
+        "virtualNetworkNewOrExisting":{
+            "type": "string",
+            "defaultValue": "new",
+            "allowedValues": [
+                "new",
+                "existing"
+            ],
             "metadata": {
                 "description": "Flag to indicate whether a new virtual network should be created (true), or use an existing one (false)."
-            }
-        },
-        "createSubnet": {
-            "type": "bool",
-            "defaultValue": true,
-            "metadata": {
-                "description": "Flag to determine whether to create a new subnet (true), or use an existing one (false)."
             }
         },
         "vnetCIDR": {
@@ -74,9 +71,9 @@
         },
         "authType": {
             "type": "string",
-            "defaultValue": "sshkey",
+            "defaultValue": "sshPublicKey",
             "allowedValues": [
-                "sshkey",
+                "sshPublicKey",
                 "password"
             ],
             "metadata": {
@@ -91,13 +88,13 @@
                 "TrustedLaunch"
             ],
             "metadata": {
-                "description": "Security type for virtual machine"
+                "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
             }
         },
         "mqPassword": {
             "type": "securestring",
             "metadata": {
-                "description": "Password for MQ administrator"
+                "description": "Password for ActiveMQ administrator"
             }
         },
         "vmNsgSecurityRules": {
@@ -160,7 +157,7 @@
                 "1", "2", "3"
             ],
             "metadata": {
-                "description": "Availability zone for the Dev VM"
+                "description": "Availability zone for the VM"
             }
         },
         "vmOSVersion": {
@@ -169,7 +166,8 @@
             "allowedValues": [
                 "Ubuntu 18.04 LTS",
                 "Ubuntu 20.04 LTS",
-                "Ubuntu 22.04 LTS"
+                "Ubuntu 22.04 LTS",
+                "RHEL 8.6"
             ],
             "metadata": {
                 "description": "Operating system version"
@@ -177,7 +175,7 @@
         },
         "branch": {
             "type": "string",
-            "defaultValue": "initial-version",
+            "defaultValue": "main",
             "metadata": {
                 "description": "GitHub branch for script URI"
             }
@@ -194,6 +192,27 @@
             "defaultValue": "5.16.3",
             "metadata": {
                 "description": "ActiveMQ version to be installed."
+            }
+        },
+        "createPublicIP": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to indicate whether a public ip address should be created."
+            }
+        },
+        "publicIPName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('namePrefix'),'-ip')]",
+            "metadata": {
+                "description": "Name for the public IP address if creating."
+            }
+        },
+        "domainName": {
+            "type": "string",
+            "defaultValue": "[toLower( concat(parameters('namePrefix'),uniqueString(resourceGroup().name)) )]",
+            "metadata": {
+                "description": "Domain name prefix for the public IP address"
             }
         }
     },
@@ -233,6 +252,12 @@
                 "offer": "0001-com-ubuntu-server-jammy",
                 "sku": "22_04-lts-gen2",
                 "version": "latest"
+            },
+            "RHEL 8.6": {
+                "publisher": "RedHat",
+                "offer": "RHEL",
+                "sku": "8_6",
+                "version": "latest"
             }
         },
         "securityProfile": {
@@ -241,13 +266,21 @@
                 "vTpmEnabled": true
             },
             "securityType": "[parameters('securityType')]"
-        }
+        },
+        "publicIP": {
+            "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName'))]"
+        },
+        "vnetId": {
+            "new": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
+            "existing": "[resourceId(parameters('vnetName'),'Microsoft.Network/virtualNetworks',parameters('vnetName'))]"
+        },
+        "subnetId": "[concat(variables('vnetId')[parameters('virtualNetworkNewOrExisting')],'/subnets/',parameters('subnetName'))]"
     },
     "resources": [
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2020-11-01",
-            "condition": "[parameters('createVNet')]",
+            "condition": "[equals(parameters('virtualNetworkNewOrExisting'),'new')]",
             "comments": "Create a new virtual network if requested.",
             "name": "[parameters('vnetName')]",
             "location": "[parameters('location')]",
@@ -262,7 +295,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2020-11-01",
-            "condition": "[parameters('createSubnet')]",
+            "condition": "[equals(parameters('virtualNetworkNewOrExisting'),'new')]",
             "name": "[concat(parameters('vnetName'),'/',parameters('subnetName'))]",
             "properties": {
                 "addressPrefix": "[parameters('subnetCIDR')]"
@@ -270,6 +303,30 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
             ]
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('createPublicIP')]",
+            "name": "[parameters('publicIPName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
+            "properties": {
+                "publicIPAllocationMethod": "Static",
+                "deleteOption": "Delete",
+                "publicIPAddressVersion": "IPv4",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('domainName')]"
+                }
+            }
         },
         {
             "type": "Microsoft.Network/networkInterfaces",
@@ -282,8 +339,9 @@
                         "name": "ipconfig1",
                         "properties": {
                             "subnet": {
-                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                                "id": "[variables('subnetId')]"
                             },
+                            "publicIPAddress": "[if(parameters('createPublicIP'),variables('publicIP'),json('null'))]",
                             "privateIPAllocationMethod": "Dynamic"
                         }
                     }
@@ -294,7 +352,8 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName'))]"
             ]
         },
         {
@@ -335,7 +394,7 @@
                     "computerName": "[variables('vmName')]",
                     "adminUsername": "[parameters('adminUserName')]",
                     "adminPassword": "[parameters('adminPassword')]",
-                    "linuxConfiguration": "[if(equals(parameters('authType'), 'sshkey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
+                    "linuxConfiguration": "[if(equals(parameters('authType'), 'sshPublicKey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
                 },
                 "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'),variables('securityProfile'),json('null'))]",
                 "diagnosticsProfile": {
@@ -354,8 +413,9 @@
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
             "apiVersion": "2022-03-01",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'Canonical'), bool('true'), bool('false'))]",
             "location": "[parameters('location')]",
-            "name": "[concat(variables('vmName'),'/','installActiveMQ')]",
+            "name": "[concat(variables('vmName'),'/','installActiveMQ-ubuntu')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
             ],
@@ -368,7 +428,29 @@
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'activemq-config.sh')]"
                     ],
-                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'))]"
+                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2022-03-01",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false'))]",
+            "location": "[parameters('location')]",
+            "name": "[concat(variables('vmName'),'/','installActiveMQ-rhel')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[concat(parameters('scriptURI'),'activemq-rhel.sh')]"
+                    ],
+                    "commandToExecute": "[concat('/bin/bash activemq-rhel.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
                 }
             }
         }
