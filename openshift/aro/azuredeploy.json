@@ -10,6 +10,13 @@
                 "description": "Prefix for resource names"
             }
         },
+        "clusterName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('namePrefix'), '-aro')]",
+            "metadata": {
+                "description": "Name for the ARO cluster"
+            }
+        },
         "spClientId" : {
             "type": "string",
             "metadata": {
@@ -216,8 +223,7 @@
         }       
     },
     "variables": {
-        "aroRG": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',variables('clusterName'))]",
-        "clusterName": "[concat(parameters('namePrefix'), '-aro')]",
+        "aroRG": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',parameters('clusterName'))]",
         "contribRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
         "userAccessAdminRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '18d7d88d-d35e-4fb5-a5c3-7773c20a72d9')]",
         "azureFileDeploymentName": "[concat(parameters('namePrefix'),'-file-deploy')]",
@@ -310,7 +316,7 @@
         {
             "type": "Microsoft.RedHatOpenShift/OpenShiftClusters",
             "apiVersion": "2022-04-01",
-            "name": "[variables('clusterName')]",
+            "name": "[parameters('clusterName')]",
             "location": "[parameters('location')]",
             "properties": {
                 "clusterProfile": {
@@ -362,7 +368,7 @@
             "condition": "[parameters('createAzureFileStorage')]",
             "name": "[variables('azureFileDeploymentName')]",
             "dependsOn": [
-                "[resourceId('Microsoft.RedHatOpenShift/OpenShiftClusters', variables('clusterName'))]"
+                "[resourceId('Microsoft.RedHatOpenShift/OpenShiftClusters', parameters('clusterName'))]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -372,7 +378,7 @@
                 },
                 "parameters": {
                     "aroClusterName": {
-                        "value": "[variables('clusterName')]"
+                        "value": "[parameters('clusterName')]"
                     },
                     "spClientId": {
                         "value": "[parameters('spClientId')]"
@@ -405,7 +411,7 @@
     "outputs": {
         "clusterName": {
             "type": "string",
-            "value": "[variables('clusterName')]"
+            "value": "[parameters('clusterName')]"
         }
     }
 }
