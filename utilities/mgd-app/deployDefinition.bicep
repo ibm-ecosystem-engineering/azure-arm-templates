@@ -15,9 +15,13 @@ param principalId string
 @description('Role ID for permissions to the managed resource group.')
 param roleId string
 
+@description('Display name for the application')
+param definitionDisplayName string
+
+@description('Description of the managed application')
+param definitionDescription string
+
 var definitionLockLevel = 'ReadOnly'
-var definitionDisplayName = 'Sample BYOS managed application'
-var definitionDescription = 'Sample BYOS managed application that deploys web resources'
 
 resource managedApplicationDefinition 'Microsoft.Solutions/applicationDefinitions@2021-07-01' = {
   name: managedApplicationDefinitionName
