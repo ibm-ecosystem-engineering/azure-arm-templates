@@ -4,17 +4,13 @@ source common.sh
 
 # Set defaults
 if [[ -z $OUTPUT_DIR ]]; then export OUTPUT_DIR="/tmp"; fi
+if [[ -z $DEFAULT_APP_ZIP_STORE ]]; then DEFAULT_APP_ZIP_STORE="mgdappstoreibmpe"; fi
+if [[ -z $DEFAULT_CONTAINER ]]; then DEFAULT_CONTAINER="appcontainer"; fi
+if [[ -z $DEFAULT_APP_DEF_STORE ]]; then DEFAULT_APP_DEF_STORE="byomgdappstoreibmpe"; fi
+if [[ -z $DEFAULT_RESOURCE_GROUP ]]; then DEFAULT_RESOURCE_GROUP="service-catalog"; fi
 
 # Create new log output file
 reset-output
-
-# Check environment variables
-ENV_VAR_NOT_SET=""
-
-if [[ -n $ENV_VAR_NOT_SET ]]; then
-    log-output "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
-    exit 1
-fi
 
 # Log into Azure
 az account show > /dev/null 2>&1
@@ -28,8 +24,12 @@ fi
 
 # Create storage account
 echo
-echo -n "Enter the name of the storage account for the application files: "
+echo -n "Enter the name of the storage account for the application files [$DEFAULT_APP_ZIP_STORE]: "
 read storage_account_name
+
+if [[ -z $storage_account_name ]]; then
+    storage_account_name=$DEFAULT_APP_ZIP_STORE
+fi
 
 if [[ -z $(az storage account list -o table | grep $storage_account_name ) ]]; then
     confirm=""
@@ -41,8 +41,12 @@ if [[ -z $(az storage account list -o table | grep $storage_account_name ) ]]; t
 
         # Create resource group for storage
         echo
-        echo -n "Enter name for new resource group for storage account : "
+        echo -n "Enter name for new resource group for storage account [$DEFAULT_RESOURCE_GROUP]: "
         read resource_group_name
+
+        if [[ -z resource_group_name ]]; then
+            resource_group_name="$DEFAULT_RESOURCE_GROUP"
+        fi
 
         if [[ -z $(az group list -o table | grep $resource_group_name ) ]]; then
 
@@ -107,8 +111,12 @@ fi
 # Create storage container and upload application
 storage_container_name=""
 echo
-echo -n "Enter name of storage container to store application files: "
+echo -n "Enter name of storage container to store application files [$DEFAULT_CONTAINER]: "
 read storage_container_name
+
+if [[ -z $storage_container_name ]]; then
+    storage_container_name="$DEFAULT_CONTAINER"
+fi
 
 if [[ -z $(az storage container list --account-name $storage_account_name --auth-mode login -o table | grep $storage_container_name ) ]]; then
     confirm=""
@@ -168,8 +176,16 @@ packageuri=$(az storage blob url \
 
 # Create BYO Storage for the managed application definition
 echo
-echo -n "Enter BYO storage account name: "
+echo -n "Enter BYO storage account name [$DEFAULT_APP_DEF_STORE]: "
 read byo_storage_account_name
+
+if [[ -z $byo_storage_account_name ]]; then
+    byo_storage_account_name=$DEFAULT_APP_DEF_STORE
+fi
+
+if [[ -z $resource_group_name ]]; then
+    resource_group_name=$DEFAULT_RESOURCE_GROUP
+fi
 
 echo
 echo -n "Enter resource group for BYO storage account [$resource_group_name] : "
@@ -264,7 +280,7 @@ roleid=$(az role definition list --name Owner --query "[].name" --output tsv)
 # Deploy the application definition
 confirm=""
 echo
-echo "Create application definition [Y/n]: "
+echo -n "Create application definition [Y/n]: "
 read confirm
 
 if [[ $(echo $confirm | tr '[:lower:]' '[:upper:]' ) == "Y" ]] || [[ -z $confirm ]]; then
@@ -277,7 +293,7 @@ if [[ $(echo $confirm | tr '[:lower:]' '[:upper:]' ) == "Y" ]] || [[ -z $confirm
     echo -n "Enter the resource group for the application definitions [$byo_resource_group_name]: "
     read app_resource_group_name
 
-    if [[ -z $byo_resource_group_name ]]; then
+    if [[ -z $app_resource_group_name ]]; then
         app_resource_group_name=$byo_resource_group_name
     fi
 
@@ -308,14 +324,42 @@ if [[ $(echo $confirm | tr '[:lower:]' '[:upper:]' ) == "Y" ]] || [[ -z $confirm
         log-output "INFO: Resource group $app_resource_group_name already exists."
     fi
 
-    az deployment group create \
-        --resource-group $app_resource_group_name \
-        --template-file deployDefinition.bicep \
-        --parameter managedApplicationDefinitionName=$application_definition_name \
-        --parameter definitionStorageResourceID=$storageid \
-        --parameter packageFileUri=$packageuri \
-        --parameter principalId=$principalid \
-        --parameter roleId=$roleid
+    echo 
+    echo -n "Enter the display name for the application: "
+    read displayName
+
+    echo 
+    echo -n "Enter the description for the application: "
+    read description
+
+    confirm=""
+    echo
+    echo "Will create the following application defintion"
+    echo "    App Name    : $application_definition_name"
+    echo "    Package URI : $packageuri"
+    echo "    Display Name: $displayName"
+    echo "    Description : $description"
+    echo -n "Confirm [Y/n]: "
+    read confirm
+
+    if [[ $(echo $confirm | tr '[:lower:]' '[:upper:]' ) == "Y" ]] || [[ -z $confirm ]]; then
+
+        az deployment group create \
+            --resource-group $app_resource_group_name \
+            --template-file deployDefinition.bicep \
+            --parameter managedApplicationDefinitionName=$application_definition_name \
+            --parameter definitionStorageResourceID=$storageid \
+            --parameter definitionDisplayName="$displayName" \
+            --parameter definitionDescription="$description" \
+            --parameter packageFileUri=$packageuri \
+            --parameter principalId=$principalid \
+            --parameter roleId=$roleid
+        
+        log-output "INFO: Created application definition"
+    else
+        log-output "INFO: Did not create application definition"
+    fi
+
 else
     log-output "INFO: Using existing application definition"
 fi
