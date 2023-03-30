@@ -1,0 +1,363 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "basics": [
+            {
+                "name": "namePrefix",
+                "type": "Microsoft.Common.TextBox",
+                "label": "Name Prefix",
+                "defaultValue": "",
+                "toolTip": "Prefix for created resources."
+            }
+         ],
+        "steps": [
+            {
+                "name": "networking",
+                "label": "Network Settings",
+                "elements": [
+					{
+					"name": "vnet",
+					"type": "Microsoft.Network.VirtualNetworkCombo",
+					"label": {
+						"virtualNetwork": "Virtual network",
+						"subnets": "Subnets"
+					},
+					"toolTip": {
+						"virtualNetwork": "",
+						"subnets": ""
+					},
+					"defaultValue": {
+						"name": "vnet",
+						"addressPrefixSize": "/20"
+					},
+					"constraints": {
+						"minAddressPrefixSize": "/20"
+					},
+					"options": {
+						"hideExisting": false
+					},
+					"subnets": {
+						"controlSubnet": {
+							"label": "Control Subnet",
+							"defaultValue": {
+								"name": "control-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 3,
+								"requireContiguousAddresses": true
+							}
+						},
+							"workerSubnet": {
+							"label": "Worker Subnet",
+							"defaultValue": {
+								"name": "worker-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						},
+							"storageSubnet": {
+							"label": "Storage Subnet",
+							"defaultValue": {
+								"name": "storage-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						}
+					},
+					"visible": true
+					} 
+                ]
+            },
+			{
+				"name": "openshift",
+				"label": "OpenShift",
+				"elements": [
+					{
+						"name": "clusterName",
+						"label": "Cluster Name",
+						"type": "Microsoft.Common.TextBox",
+						"placeholder": "",
+						"defaultValue": "[concat(basics('namePrefix'), '-aro')]",
+						"constraints": {
+							"required": true,
+							"validations": [
+								{
+									"regex": "^[a-zA-Z][a-z0-9A-Z-]{3,8}$",
+									"message": "Only alphanumeric characters and dashes are allowed, the first letter must be a character, and the value must be 3-8 characters long."
+								}
+							]
+						},
+						"visible": true
+					},
+					{
+						"name": "masterNodes",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "Control Node Size",
+						"toolTip": "",
+						"recommendedSizes": [
+							"Standard_D8s_v3",
+							"Standard_D16s_v3",
+							"Standard_D32s_v3"
+						],
+						"constraints": {
+							"allowedSizes": [
+								"Standard_D8s_v3",
+								"Standard_D16s_v3",
+								"Standard_D32s_v3",
+								"Standard_E64i_v3",
+								"Standard_E64is_v3",
+								"Standard_E80is_v4",
+								"Standard_E80ids_v4",
+								"Standard_E104i_v5",
+								"Standard_E104is_v5",
+								"Standard_E104id_v5",
+								"Standard_E104ids_v5",
+								"Standard_F72s_v2",
+								"Standard_G5",
+								"Standard_GS5",
+								"Standard_M128ms"
+							]
+						},
+						"options": {
+							"hideDiskTypeFilter": false
+						},
+						"osPlatform": "Linux",
+						"imageReference": {
+							"publisher": "MicrosoftWindowsServer",
+							"offer": "WindowsServer",
+							"sku": "2012-R2-Datacenter"
+						},
+						"count": 3,
+						"visible": true
+					},
+					{
+						"name": "workerNodes",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "Worker VM Size",
+						"toolTip": "",
+						"defaultValue": "Standard_D4s_v3",
+						"recommendedSizes": [
+							"Standard_D4s_v3",
+							"Standard_D8s_v3",
+							"Standard_D16s_v3",
+							"Standard_D32s_v3"
+						],
+						"constraints": {
+							"allowedSizes": [
+								"Standard_D4s_v3",
+								"Standard_D8s_v3",
+								"Standard_D16s_v3",
+								"Standard_D32s_v3",
+								"Standard_D4as_v4",
+								"Standard_D8as_v4",
+								"Standard_D16as_v4",
+								"Standard_D32as_v4",
+								"Standard_E4s_v3",
+								"Standard_E8s_v3",
+								"Standard_E16s_v3",
+								"Standard_E32s_v3",
+								"Standard_E64is_v3",
+								"Standard_E80is_v4",
+								"Standard_E80ids_v4",
+								"Standard_E104is_v5",
+								"Standard_E104id_v5",
+								"Standard_E104ids_v5",
+								"Standard_F4s_v2",
+								"Standard_F8s_v2",
+								"Standard_F16s_v2",
+								"Standard_F32s_v2",
+								"Standard_F72s_v2",
+								"Standard_M128ms",
+								"Standard_L4s",
+								"Standard_L8s",
+								"Standard_L16s",
+								"Standard_L32s",
+								"Standard_L8s_v2",
+								"Standard_L16s_v2",
+								"Standard_L32s_v2",
+								"Standard_L48s_v2",
+								"Standard_L48s_v2",
+								"Standard_NC4as_T4_v3",
+								"Standard_NC6s_v3",
+								"Standard_NC8as_T4_v3",
+								"Standard_NC12s_v3",
+								"Standard_NC16as_T4_v3",
+								"Standard_NC24s_v3",
+								"Standard_NC24rs_v3",
+								"Standard_NC64as_T4_v3",
+								"Standard_GS5"
+							]
+						},
+						"options": {
+							"hideDiskTypeFilter": false
+						},
+						"osPlatform": "Windows",
+						"imageReference": {
+							"publisher": "MicrosoftWindowsServer",
+							"offer": "WindowsServer",
+							"sku": "2012-R2-Datacenter"
+						},
+						"count": "[steps('openshift').workerCount]",
+						"visible": true
+					},
+					{
+							"name": "workerCount",
+							"type": "Microsoft.Common.Slider",
+							"min": 2,
+							"max": 64,
+							"label": "Worker Node Quantity",
+							"defaultValue": 3,
+							"showStepMarkers": false,
+							"toolTip": "Select the number of worker nodes",
+							"constraints": {
+								"required": false
+							},
+							"visible": true
+					},
+					{
+						"name": "workerDiskSize",
+						"type": "Microsoft.Common.Slider",
+						"min": 128,
+						"max": 32767,
+						"label": "Worker Node Disk Size (GiB)",
+						"defaultValue": 128,
+						"showStepMarkers": false,
+						"toolTip": "Select the size of the disk on each worker node",
+						"constraints": {
+							"required": false
+						},
+						"visible": true
+					},
+					{
+						"name": "createFileStorage",
+						"type": "Microsoft.Common.OptionsGroup",
+						"label": "Create private file storage and configure Azure file storage in OpenShift",
+						"defaultValue": "Yes",
+						"toolTip": "",
+						"constraints": {
+						  "allowedValues": [
+							{
+							  "label": "Yes",
+							  "value": true
+							},
+							{
+							  "label": "No",
+							  "value": false
+							}
+						  ],
+						  "required": true
+						},
+						"visible": true
+					  },
+					  {
+						"name": "pullSecret",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Red Hat Pull Secret",
+						"toolTip": "Refer to https://console.redhat.com/openshift/install/pull-secret",
+						"placeholder": "",
+						"multiLine": true,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+								"isValid": "[startsWith( steps('openshift').pullSecret, '{\"auths\":' )]",
+								"message": "Must be a valid pull secret"
+							}
+						  ]
+						},
+						"visible": true
+					  },
+					  {
+						"name": "rpObjectId",
+						"type": "Microsoft.Common.TextBox",
+						"label": "OpenShift Resource Provider Service Prinicpal Id",
+						"defaultValue": "",
+						"toolTip": "Refer to https://learn.microsoft.com/en-us/azure/openshift/quickstart-openshift-arm-bicep-template?pivots=aro-arm#get-the-service-principal-object-id-for-the-openshift-resource-provider---azure-cli for details",
+						"placeholder": "",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z0-9A-Z-]{36}$",
+							  "message": "Only alphanumeric characters and dashes are allowed, and the value must be 36 characters long."
+							}
+						  ]
+						},
+						"visible": true
+					  }
+				]
+			},
+			{
+				"name": "auth",
+				"label": "Authentication",
+				"elements": [
+					{
+						"name": "servicePrincipal",
+						"type": "Microsoft.Common.ServicePrincipalSelector",
+						"label": {
+						  "password": "Password",
+						  "certificateThumbprint": "Certificate thumbprint",
+						  "authenticationType": "Authentication Type",
+						  "sectionHeader": "Service Principal"
+						},
+						"toolTip": {
+						  "password": "Password",
+						  "certificateThumbprint": "Certificate thumbprint",
+						  "authenticationType": "Authentication Type"
+						},
+						"defaultValue": {
+						  "principalId": "<default guid>",
+						  "name": "(New) default App Id"
+						},
+						"constraints": {
+						  "required": true,
+						  "regex": "^[a-zA-Z0-9~.-_]{8,}$",
+						  "validationMessage": "Password must be at least 8 characters long, contain only numbers and letters"
+						},
+						"options": {
+						  "hideCertificate": false
+						},
+						"visible": true
+					  }
+				]
+			}
+         ],
+        "outputs": {
+            "namePrefix": "[basics('namePrefix')]",
+			"clusterName": "[steps('openshift').clusterName]",
+			"spClientId": "[steps('auth').servicePrincipal.appId]",
+			"spObjectId": "[first(steps('auth').servicePrincipal.objectId)]",
+			"spClientSecret": "[steps('auth').servicePrincipal.password]",
+			"rpObjectId": "[steps('openshift').rpObjectId]",
+			"pullSecret": "[steps('openshift').pullSecret]",
+			"location": "[location()]",
+			"createVnet": "[if( equals( steps('networking').vnet.newOrExisting, 'new'), true, false )]",
+			"vnetName": "[steps('networking').vnet.name]",
+			"vnetCIDR": "[first( steps('networking').vnet.addressPrefixes )]",
+			"controlSubnetCIDR": "[steps('networking').vnet.subnets.controlSubnet.addressPrefix]",
+			"workerSubnetCIDR": "[steps('networking').vnet.subnets.workerSubnet.addressPrefix]",
+			"storageSubnetCIDR": "[steps('networking').vnet.subnets.storageSubnet.addressPrefix]",
+			"controlSubnetName": "[steps('networking').vnet.subnets.controlSubnet.name]",
+			"workerSubnetName": "[steps('networking').vnet.subnets.workerSubnet.name]",
+			"storageSubnetName": "[steps('networking').vnet.subnets.storageSubnet.name]",
+			"masterSize": "[steps('openshift').masterNodes]",
+			"workerSize": "[steps('openshift').workerNodes]",
+			"workerCount": "[steps('openshift').workerCount]",
+			"workerDiskSize": "[steps('openshift').workerDiskSize]",
+			"createAzureFileStorage": "[steps('openshift').createFileStorage]"
+         }
+    }
+}
