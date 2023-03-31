@@ -1,0 +1,460 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "basics": [
+            {
+                "name": "namePrefix",
+                "type": "Microsoft.Common.TextBox",
+                "label": "Name Prefix",
+                "defaultValue": "",
+                "toolTip": "Prefix for created resources."
+            }
+         ],
+        "steps": [
+            {
+                "name": "networking",
+                "label": "Network Settings",
+                "elements": [
+					{
+					"name": "mainVnet",
+					"type": "Microsoft.Network.VirtualNetworkCombo",
+					"label": {
+						"virtualNetwork": "Virtual network",
+						"subnets": "Subnets"
+					},
+					"toolTip": {
+						"virtualNetwork": "",
+						"subnets": ""
+					},
+					"defaultValue": {
+						"name": "vnet",
+						"addressPrefixSize": "/20"
+					},
+					"constraints": {
+						"minAddressPrefixSize": "/20"
+					},
+					"options": {
+						"hideExisting": true
+					},
+					"subnets": {
+						"controlSubnet": {
+							"label": "ARO Control Subnet",
+							"defaultValue": {
+								"name": "control-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 3,
+								"requireContiguousAddresses": true
+							}
+						},
+						"workerSubnet": {
+							"label": "ARO Worker Subnet",
+							"defaultValue": {
+								"name": "worker-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						},
+						"bastionSubnet": {
+							"label": "Bastion Subnet",
+							"defaultValue": {
+								"name": "bastion-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						},
+						"devSubnet": {
+							"label": "Developer Subnet",
+							"defaultValue": {
+								"name": "developer-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						},
+						"dataSubnet": {
+							"label": "Database Subnet",
+							"defaultValue": {
+								"name": "database-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						},
+						"endpointSubnet": {
+							"label": "Endpoint Subnet",
+							"defaultValue": {
+								"name": "endpoint-subnet",
+								"addressPrefixSize": "/24"
+							},
+							"constraints": {
+								"minAddressPrefixSize": "/24",
+								"minAddressCount": 50,
+								"requireContiguousAddresses": true
+							}
+						}
+					},
+					"visible": true
+					} 
+                ]
+            },
+			{
+				"name": "openshift",
+				"label": "OpenShift",
+				"elements": [
+					{
+						"name": "clusterName",
+						"label": "Cluster Name",
+						"type": "Microsoft.Common.TextBox",
+						"tooltip": "Name of the ARO Cluster",
+						"defaultValue": "[concat(basics('namePrefix'), '-aro')]"
+					},
+					{
+						"name": "masterNodes",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "Master VM Size",
+						"toolTip": "",
+						"recommendedSizes": [
+							"Standard_D8s_v3",
+							"Standard_D16s_v3",
+							"Standard_D32s_v3"
+						],
+						"constraints": {
+							"allowedSizes": [
+								"Standard_D8s_v3",
+								"Standard_D16s_v3",
+								"Standard_D32s_v3",
+								"Standard_E64i_v3",
+								"Standard_E64is_v3",
+								"Standard_E80is_v4",
+								"Standard_E80ids_v4",
+								"Standard_E104i_v5",
+								"Standard_E104is_v5",
+								"Standard_E104id_v5",
+								"Standard_E104ids_v5",
+								"Standard_F72s_v2",
+								"Standard_G5",
+								"Standard_GS5",
+								"Standard_M128ms"
+							]
+						},
+						"options": {
+							"hideDiskTypeFilter": false
+						},
+						"osPlatform": "Linux",
+						"imageReference": {
+							"publisher": "MicrosoftWindowsServer",
+							"offer": "WindowsServer",
+							"sku": "2012-R2-Datacenter"
+						},
+						"count": 3,
+						"visible": true
+					},
+					{
+						"name": "workerNodes",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "Worker VM Size",
+						"toolTip": "",
+						"defaultValue": "Standard_D4s_v3",
+						"recommendedSizes": [
+							"Standard_D4s_v3",
+							"Standard_D8s_v3",
+							"Standard_D16s_v3",
+							"Standard_D32s_v3"
+						],
+						"constraints": {
+							"allowedSizes": [
+								"Standard_D4s_v3",
+								"Standard_D8s_v3",
+								"Standard_D16s_v3",
+								"Standard_D32s_v3",
+								"Standard_D4as_v4",
+								"Standard_D8as_v4",
+								"Standard_D16as_v4",
+								"Standard_D32as_v4",
+								"Standard_E4s_v3",
+								"Standard_E8s_v3",
+								"Standard_E16s_v3",
+								"Standard_E32s_v3",
+								"Standard_E64is_v3",
+								"Standard_E80is_v4",
+								"Standard_E80ids_v4",
+								"Standard_E104is_v5",
+								"Standard_E104id_v5",
+								"Standard_E104ids_v5",
+								"Standard_F4s_v2",
+								"Standard_F8s_v2",
+								"Standard_F16s_v2",
+								"Standard_F32s_v2",
+								"Standard_F72s_v2",
+								"Standard_M128ms",
+								"Standard_L4s",
+								"Standard_L8s",
+								"Standard_L16s",
+								"Standard_L32s",
+								"Standard_L8s_v2",
+								"Standard_L16s_v2",
+								"Standard_L32s_v2",
+								"Standard_L48s_v2",
+								"Standard_L48s_v2",
+								"Standard_NC4as_T4_v3",
+								"Standard_NC6s_v3",
+								"Standard_NC8as_T4_v3",
+								"Standard_NC12s_v3",
+								"Standard_NC16as_T4_v3",
+								"Standard_NC24s_v3",
+								"Standard_NC24rs_v3",
+								"Standard_NC64as_T4_v3",
+								"Standard_GS5"
+							]
+						},
+						"options": {
+							"hideDiskTypeFilter": false
+						},
+						"osPlatform": "Windows",
+						"imageReference": {
+							"publisher": "MicrosoftWindowsServer",
+							"offer": "WindowsServer",
+							"sku": "2012-R2-Datacenter"
+						},
+						"count": "[steps('openshift').workerCount]",
+						"visible": true
+					},
+					{
+							"name": "workerCount",
+							"type": "Microsoft.Common.Slider",
+							"min": 2,
+							"max": 64,
+							"label": "Worker Node Quantity",
+							"defaultValue": 3,
+							"showStepMarkers": false,
+							"toolTip": "Select the number of worker nodes",
+							"constraints": {
+								"required": false
+							},
+							"visible": true
+					},
+					{
+						"name": "rpObjectId",
+						"type": "Microsoft.Common.TextBox",
+						"label": "OpenShift Resource Provider Service Prinicpal Id",
+						"defaultValue": "",
+						"toolTip": "Refer to https://learn.microsoft.com/en-us/azure/openshift/quickstart-openshift-arm-bicep-template?pivots=aro-arm#get-the-service-principal-object-id-for-the-openshift-resource-provider---azure-cli for details",
+						"placeholder": "",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z0-9A-Z-]{36}$",
+							  "message": "Only alphanumeric characters and dashes are allowed, and the value must be 36 characters long."
+							}
+						  ]
+						},
+						"visible": true
+					},
+					{
+						"name": "pullSecret",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Red Hat Pull Secret",
+						"toolTip": "Refer to https://console.redhat.com/openshift/install/pull-secret",
+						"placeholder": "",
+						"multiLine": true,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+								"isValid": "[startsWith( steps('openshift').pullSecret, '{\"auths\":' )]",
+								"message": "Must be a valid pull secret"
+							}
+						  ]
+						},
+						"visible": true
+					}
+				]
+			},
+			{
+				"name": "sterling",
+				"label": "Sterling Software",
+				"elements": [
+					{
+						"name": "ibmEntitlementKey",
+						"type": "Microsoft.Common.PasswordBox",						
+						"label": {
+							"password": "IBM Entitlement Key"
+						},
+						"constraints": {
+							"required": true,
+							"regex": "^[a-zA-Z0-9.-_]{100,}$",
+							"validationMessage": "Key must be at least 100 characters long, contain only numbers, letters, underscores, dots and dashes"
+                		},
+						"options": {
+							"hideConfirmation": true
+						},
+						"visible": true
+					},
+					{
+						"name": "legalAccept",
+						"type": "Microsoft.Common.OptionsGroup",
+						"label": "Sterling License Agreement",
+						"defaultValue": "Decline",
+						"constraints": {
+							"required": true,
+							"allowedValues": [
+								{
+									"label": "Decline",
+									"value": "decline"
+								},
+								{
+									"label": "Accept",
+									"value": "accept"
+								}
+							]
+						},
+						"visible": true
+					},
+					{
+						"name": "omsNamespace",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Namespace for Sterling OMS",
+						"defaultValue": "oms",
+						"toolTip": "Namespace for Sterling OMS",
+						"placeholder": "",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z0-9A-Z-]{3,}$",
+							  "message": "Only alphanumeric characters and dashes are allowed, and the value must be more than 3 characters long."
+							}
+						  ]
+						},
+						"visible": true
+					},
+					{
+						"name": "omsImage",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Sterling OMS Image to Install",
+						"defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
+						"toolTip": "",
+						"placeholder": "",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z0-9A-Z-/.:]{3,}$",
+							  "message": "Must be a valid image reference"
+							}
+						  ]
+						},
+						"visible": true
+					}
+				]
+			},
+			{
+				"name": "auth",
+				"label": "Authentication",
+				"elements": [
+					{
+						"name": "adminUserName",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Admin Username",
+						"defaultValue": "azureuser",
+						"toolTip": "Administrator username for deployed VMs"
+					},
+					{
+						"name": "adminPassword",
+						"type": "Microsoft.Common.PasswordBox",
+						"label": {
+							"password": "Admin Password",
+							"confirmPassword": "Confirm Admin Password"
+						},
+						"toolTip": "Password to be used for deployed VMs and database.",
+						"constraints": {
+							"required": true,
+							"regex": "^[A-Za-z0-9@$&^%*()!#~.-]{8,}$",
+							"validationMessage": "Password must be at least 8 characters long, contain only numbers, letters and special characters"
+						},
+						"options": {
+							"hideConfirmation": false
+						},
+						"visible": true
+					},
+					{
+						"name": "servicePrincipal",
+						"type": "Microsoft.Common.ServicePrincipalSelector",
+						"label": {
+						  "password": "Password",
+						  "certificateThumbprint": "Certificate thumbprint",
+						  "authenticationType": "Authentication Type",
+						  "sectionHeader": "Service Principal"
+						},
+						"toolTip": {
+						  "password": "Password",
+						  "certificateThumbprint": "Certificate thumbprint",
+						  "authenticationType": "Authentication Type"
+						},
+						"defaultValue": {
+						  "principalId": "<default guid>",
+						  "name": "(New) default App Id"
+						},
+						"constraints": {
+						  "required": true,
+						  "regex": "^[a-zA-Z0-9~.-_]{8,}$",
+						  "validationMessage": "Password must be at least 8 characters long, contain only numbers and letters"
+						},
+						"options": {
+						  "hideCertificate": false
+						},
+						"visible": true
+					}
+				]
+			} 
+         ],
+        "outputs": {
+            "namePrefix": "[basics('namePrefix')]",
+			"location": "[location()]",
+			"ibmEntitlementKey": "[steps('sterling').ibmEntitlementKey]",
+			"acceptLicense": "[steps('sterling').acceptLicense]",
+			"vnetName": "[[steps('networking').vnet.name]]",
+			"vnetCIDR": "[[first( steps('networking').vnet.addressPrefixes ) ]]",
+			"controlSubnetCIDR": "[[steps('networking').vnet.subnets.controlSubnet.addressPrefix]]",
+			"workerSubnetCIDR": "[[steps('networking').vnet.subnets.workerSubnet.addressPrefix]]",
+			"bastionSubnetCIDR": "[steps('networking').vnet.subnets.bastionSubnet.addressPrefix]",
+			"devSubnetCIDR": "[steps('networking').vnet.subnets.devSubnet.addressPrefix]",
+			"databaseSubnetCIDR": "[steps('networking').vnet.subnets.dataSubnet.addressPrefix]",
+			"endpointSubnetCIDR": "[steps('networking').vnet.subnets.endpointSubnet.addressPrefix]",
+			"adminUserName": "[steps('auth').adminUserName]",
+			"adminPassword": "[steps('auth').adminPassword]",
+			"spClientId": "[steps('auth').servicePrincipal.appId]",
+			"spObjectId": "[first(steps('auth').servicePrincipal.objectId)]",
+			"spClientSecret": "[steps('auth').servicePrincipal.password]",
+			"rpObjectId": "[steps('openshift').rpObjectId]",
+			"pullSecret": "[steps('openshift').pullSecret]",
+			"workerSize": "[steps('openshift').workerNodes]",
+			"workerCount": "[steps('openshift').workerCount]",
+			"omsNamespace": "[steps('sterling').omsNamespace]",
+			"omsImage": "[steps('sterling').omsImage]"
+         }
+    }
+}

@@ -1,8 +1,17 @@
-# A basic template for a Azure Red Hat OpenShift (ARO) cluster
+# Azure Red Hat OpenShift (ARO) cluster with Azure File Storage
+
+[![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Fopenshift%2Faro%2Fazuredeploy.json)
+[![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Fopenshift%2Faro%2Fazuredeploy.json)
 
 This guide uses the Azure CLI tools. It is also possible to use the same template with the portal directly or PowerShell.
 
 This template includes an option, on by default, that will create a file share storage account and setup Azure file storage in the Azure Red Hat OpenShift cluster.
+
+The templates creates the following resources by default:
+- A virtual network with control, worker and storage subnets
+- A highly available Azure Red Hat OpenShift (ARO) cluster
+- Azure private storage
+- Configures Azure file storage on the ARO cluster for RWS filesystem storage
 
 ## Prerequisites
 
@@ -17,7 +26,66 @@ This template includes an option, on by default, that will create a file share s
 - (Optional) Have `jq` installed if you want to use this to obtain some of the parameters per the below steps
 - Have a Red Hat account if you are going to access the Red Hat marketplace post installation
 
-## Execution steps
+## Execution steps - Azure Portal
+
+1. Create a service principal in the Azure Active Directory
+2. Click on the Deploy to Azure button above
+3. Log into your Azure account if not already logged in
+4. Fill in the parameters according to your requirements
+
+![Deploy Parameters 1](images/deploy1.png "parameters1")
+
+- Choose the right subscription
+- Create a new resource group or specify an existing one
+- Specify the region into which to deploy resources
+- Enter the name prefix. This will be used to prefix all created resources.
+- Enter the cluster name which must begin with a character and be between 3 to 8 alphanumeric characters in length.
+- Enter the client id for the service principal previously created
+- Enter the password for the service principal preivously created
+- Enter the object id for the service principal previously created
+- Enter the Red Hat OpenShift resource provider id
+    This can be obtained by running:
+    ```
+    az ad sp list --display-name "Azure Red Hat OpenShift RP" --query "[0].id" -o tsv
+    ```
+- Enter the Red Hat pull secret
+
+![Deploy Parameters 2](images/deploy2.png "parameters2")
+
+- Location can be left as is
+- VNet Name can be left unchanged if creating a new VNet. If using an existing VNet, specify the name of that VNet
+- Create VNet true will create a new VNet with the above name in the resource group. 
+- Setting Azure File Storage to true will create Azure private storage and configure file storage on the ARO cluster
+- If creating a new VNet, leave the VNet and subnet CIDRs as are, otherwise enter the existing CIDR values for the VNet and subnets. Note that the deployment will only create subnets if creating a new VNet
+- Likewise for the subnet names, leave as is for new VNet or enter existing subnet details if not creating a new VNet
+- For the domain, either leave as is which will create a unique string based upon the resource group name, or enter your own which will prefix the azure domain for the console.
+- Leave the POD and Service CIDR's as is unless it conflicts with the VNet CIDR
+- Choose the size of the Master/control and Worker virtual machines. Note the allow sizes can be found [here](https://learn.microsoft.com/en-us/azure/openshift/support-policies-v4#supported-virtual-machine-sizes)
+- Choose the number of required worker nodes. The minimum recommended is 3.
+- Choose whether the disks should use encryption
+
+![Deploy Parameters 3](images/deploy3.png "parameters3")
+
+- Leave FIPS enabled as false. This feature is not currently supported with this deployment.
+- Enter the worker disk size. Minimum is 128GB.
+- Leave the API Visibility as Public if using Azure file storage
+- Leave the Ingress Visibility as Public if using Azure file storage
+- Leave branch as main unless doing development work on other github branches of this repo.
+
+- Press `Review + Create` to proceed. Once the Azure validation is completed, press `Create` to deploy the resources.
+
+Once the resource deployment is complete, you can access the console by navigating in the Azure portal to the resource group you specified and selecting the ARO cluster. The details at the top include a console URL.
+
+Login into the console with the credentials which can be found through the CLI as follows,
+```
+$ az aro list-credentials -n <cluster_name> -g <resource_group>
+```
+where
+`<cluster_name>` is the name of the cluster entered earlier
+`<resource_group>` is the new or existing resource group chosen earlier
+
+
+## Execution steps - Azure CLI
 
 1. Clone the repository and change to the ARO base directory if not already there.
     ```shell
