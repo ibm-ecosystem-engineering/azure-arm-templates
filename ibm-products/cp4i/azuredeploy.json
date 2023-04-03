@@ -142,7 +142,7 @@
                 "supportingScriptUris": [
                     "[uri(variables('baseUrl'),'common/scripts/common.sh')]"
                 ],
-                "timeout": "PT30M",
+                "timeout": "PT90M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
@@ -182,7 +182,7 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('roleDefinitionId')]",
-                "principalId": "[reference(parameters('managedIdName')).principalId]",
+                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
             }

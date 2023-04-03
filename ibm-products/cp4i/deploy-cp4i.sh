@@ -27,7 +27,7 @@ if [[ -z $TMP_DIR ]]; then TMP_DIR="${WORKSPACE_DIR}/tmp"; fi
 if [[ -z $NAMESPACE ]]; then export NAMESPACE="cp4i"; fi
 if [[ -z $CLUSTER_SCOPED ]]; then CLUSTER_SCOPED="false"; fi
 if [[ -z $REPLICAS ]]; then REPLICAS="1"; fi
-if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="azure-file"; fi
+if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="ocs-storagecluster-cephfs"; fi
 if [[ -z $INSTANCE_NAMESPACE ]]; then export INSTANCE_NAMESPACE=$NAMESPACE; fi
 
 ######
@@ -99,6 +99,7 @@ fi
 # Install catalog sources
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-apiconnect-catalog) ]]; then
     log-output "INFO: Installing IBM API Connect catalog source"
+    if [[ -f ${WORKSPACE_DIR}/api-connect-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/api-connect-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/api-connect-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -121,6 +122,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-appconnect-catalog) ]]; then
     log-output "INFO: Installed IBM App Connect catalog source"
+    if [[ -f ${WORKSPACE_DIR}/app-connect-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/app-connect-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/app-connect-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -143,6 +145,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-aspera-hsts-operator-catalog) ]]; then
     log-output "INFO: Installed IBM Aspera catalog source"
+    if [[ -f ${WORKSPACE_DIR}/aspera-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/aspera-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/aspera-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -165,6 +168,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-cloud-databases-redis-catalog) ]]; then
     log-output "INFO: Installed IBM Cloud databases Redis catalog source"
+    if [[ -f ${WORKSPACE_DIR}/redis-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/redis-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/redis-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -187,6 +191,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-common-service-catalog) ]]; then
     log-output "INFO: Installing IBM Common services catalog source"
+    if [[ -f ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -209,6 +214,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-datapower-operator-catalog) ]]; then
     log-output "INFO: Installing IBM Data Power catalog source"
+    if [[ -f ${WORKSPACE_DIR}/data-power-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/data-power-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/data-power-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -231,6 +237,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-eventstreams-catalog) ]]; then
     log-output "INFO: Installing IBM Event Streams catalog source"
+    if [[ -f ${WORKSPACE_DIR}/event-streams-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/event-streams-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/event-streams-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -253,6 +260,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-asset-repository-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Asset Repository catalog source"
+    if [[ -f ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -275,6 +283,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-operations-dashboard-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Operations Dashboard catalog source"
+    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -297,6 +306,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-platform-navigator-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Platform Navigator catalog source"
+    if [[ -f platform-navigator-catalogsource.yaml ]]; then rm platform-navigator-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -319,6 +329,7 @@ fi
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-mq-operator-catalog) ]]; then
     log-output "INFO: Installing IBM MQ Operator catalog source"
+    if [[ -f ${WORKSPACE_DIR}/mq-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/mq-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/mq-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -344,6 +355,7 @@ fi
 if [[ $CLUSTER_SCOPED != "true" ]]; then
     if [[ -z $(${BIN_DIR}/oc get operatorgroups -n ${NAMESPACE} | grep $NAMESPACE-og ) ]]; then
         log-output "INFO: Creating operator group for namespace ${NAMESPACE}"
+        if [[ -f ${WORKSPACE_DIR}/operator-group.yaml ]]; then rm ${WORKSPACE_DIR}/operator-group.yaml; fi
         cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -366,6 +378,7 @@ fi
 # IBM Common Services operator
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-common-service-operator-ibm-common-service-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Common Services"
+    if [[ -f ${WORKSPACE_DIR}/common-services-sub.yaml ]]; then rm ${WORKSPACE_DIR}/common-services-sub.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/common-services-sub.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -388,6 +401,7 @@ log-output "INFO: IBM Common Services subscription ready"
 # IBM Cloud Redis Databases
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-cloud-databases-redis-operator-ibm-cloud-databases-redis-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Cloud Redis databases"
+    if [[ -f ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -410,6 +424,7 @@ log-output "INFO: IBM Cloud Redis databases subscription ready"
 # Platform Navigator subscription
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-platform-navigator-ibm-integration-platform-navigator-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Integration Platform Navigator"
+    if [[ -f ${WORKSPACE_DIR}/platform-navigator-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/platform-navigator-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -432,6 +447,7 @@ log-output "INFO: IBM Integration Platform Navigator subscription ready"
 # Aspera
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep aspera-hsts-operator-ibm-aspera-hsts-operator-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Aspera"
+    if [[ -f ${WORKSPACE_DIR}/aspera-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/aspera-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/aspera-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -454,6 +470,7 @@ log-output "INFO: IBM Aspera subscription ready"
 # App Connection
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-appconnect-ibm-appconnect-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM App Connect"
+    if [[ -f ${WORKSPACE_DIR}/app-connect-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/app-connect-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/app-connect-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -476,6 +493,7 @@ log-output "INFO: IBM App Connect subscription ready"
 # Eventstreams
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-eventstreams-ibm-eventstreams-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating IBM Event Streams subscription"
+    if [[ -f ${WORKSPACE_DIR}/event-streams-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/event-streams-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/event-streams-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -498,6 +516,7 @@ log-output "INFO: IBM App Connect subscription ready"
 # MQ
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-mq-ibm-mq-operator-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM MQ"
+    if [[ -f ${WORKSPACE_DIR}/mq-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/mq-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/mq-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -520,6 +539,7 @@ log-output "INFO: IBM MQ subscription ready"
 # Asset Repo
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-asset-repository-ibm-integration-asset-repository-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Integration Asset Repository"
+    if [[ -f ${WORKSPACE_DIR}/asset-repo-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/asset-repo-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/asset-repo-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -542,6 +562,7 @@ log-output "INFO: IBM Integration Asset Repository subscription ready"
 # Data power
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep datapower-operator-ibm-datapower-operator-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Data Power"
+    if [[ -f ${WORKSPACE_DIR}/data-power-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/data-power-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/data-power-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -564,6 +585,7 @@ log-output "INFO: IBM Data Power subscription ready"
 # API Connect
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-apiconnect-ibm-apiconnect-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM API Connect"
+    if [[ -f ${WORKSPACE_DIR}/api-connect-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/api-connect-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/api-connect-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -586,9 +608,7 @@ log-output "INFO: IBM API Connect subscription ready"
 # Operations Dashboard
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-operations-dashboard-ibm-integration-operations-dashboard-catalog-openshift-marketplace) ]]; then
     log-output "INFO: Creating subscription for IBM Integration Operations Dashboard"
-    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml ]]; then
-        rm ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml
-    fi
+    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -614,9 +634,7 @@ log-output "INFO: IBM Integration Operations Dashboard ready"
 if [[ $LICENSE == "accept" ]]; then
     if [[ -z $(${BIN_DIR}/oc get PlatformNavigator -n ${INSTANCE_NAMESPACE} | grep ${INSTANCE_NAMESPACE}-navigator ) ]]; then
         log-output "INFO: Creating Platform Navigator instance"
-        if [[ -f ${WORKSPACE_DIR}/platform-navigator-instance.yaml ]]; then
-            rm ${WORKSPACE_DIR}/platform-navigator-instance.yaml
-        fi
+        if [[ -f ${WORKSPACE_DIR}/platform-navigator-instance.yaml ]]; then rm ${WORKSPACE_DIR}/platform-navigator-instance.yaml; fi
         cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-instance.yaml
 apiVersion: integration.ibm.com/v1beta1
 kind: PlatformNavigator
@@ -639,7 +657,7 @@ EOF
     fi
 
     count=0
-    while [[ $(oc get PlatformNavigator -n ${namespace} ${namespace}-navigator -o json | jq -r '.status.conditions[] | select(.type=="Ready").status') != "True" ]]; do
+    while [[ $(oc get PlatformNavigator -n ${INSTANCE_NAMESPACE} ${INSTANCE_NAMESPACE}-navigator -o json | jq -r '.status.conditions[] | select(.type=="Ready").status') != "True" ]]; do
         log-output "INFO: Waiting for Platform Navigator instance to be ready. Waited $count minutes. Will wait up to 90 minutes."
         sleep 60
         count=$(( $count + 1 ))
