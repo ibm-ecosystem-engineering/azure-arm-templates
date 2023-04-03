@@ -58,18 +58,6 @@
                 "description": "Name of the managed identity used for deployment scripts"
             }
         },
-        "spClientId" : {
-            "type": "string",
-            "metadata": {
-                "description" : "The app ID of the Service Principal (client id)"
-            }
-        },
-        "spClientSecret": {
-            "type": "securestring",
-            "metadata": {
-                "description": "The service principal secret key."
-            }
-        },
         "aroClusterName": {
             "type": "string",
             "defaultValue": "[concat(parameters('namePrefix'),'-aro')]",
@@ -119,22 +107,6 @@
                 "azCliVersion": "2.46.0",  
                 "environmentVariables": [
                     {
-                        "name": "CLIENT_ID",
-                        "value": "[parameters('spClientId')]"
-                    },
-                    {
-                        "name": "CLIENT_SECRET",
-                        "secureValue": "[parameters('spClientSecret')]"
-                    },
-                    {
-                        "name": "TENANT_ID",
-                        "value": "[subscription().tenantId]"
-                    },
-                    {
-                        "name": "SUBSCRIPTION_ID",
-                        "value": "[subscription().id]"
-                    },
-                    {
                         "name": "RESOURCE_GROUP",
                         "value": "[resourceGroup().name]"
                     },
@@ -152,6 +124,9 @@
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/cp4i/deploy-cp4i.sh')]",
+                "supportingScriptUris": [
+                    "[uri(variables('baseUrl'),'common/scripts/common.sh')]"
+                ],
                 "timeout": "PT30M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
