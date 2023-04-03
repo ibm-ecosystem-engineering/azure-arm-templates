@@ -23,6 +23,17 @@
                 "description": "Entitlement key for IBM container registry"
             }
         },
+        "acceptLicense": {
+            "type": "string",
+            "defaultValue": "decline",
+            "allowedValues": [
+                "accept",
+                "decline"
+            ],
+            "metadata": {
+                "description": "Accept IBM License Terms to instantiate software."
+            }
+        },
         "rgRoleGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
@@ -91,7 +102,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[concat('/subscriptions/',subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('managedIdName'))]": {}
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
                 }
             },
             "kind": "AzureCLI",
@@ -104,7 +115,7 @@
                     "storageAccountName": "[parameters('storageAccountName')]",
                     "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
                 },
-                "azCliVersion": "2.46.0",  
+                "azCliVersion": "2.45.0",  
                 "environmentVariables": [
                     {
                         "name": "RESOURCE_GROUP",
@@ -121,6 +132,10 @@
                     {
                         "name": "IBM_ENTITLEMENT_KEY",
                         "secureValue": "[parameters('ibmEntitlementKey')]"
+                    },
+                    {
+                        "name": "LICENSE",
+                        "value": "[parameters('acceptLicense')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/cp4i/deploy-cp4i.sh')]",

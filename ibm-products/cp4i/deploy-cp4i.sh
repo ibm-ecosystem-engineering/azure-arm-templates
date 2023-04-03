@@ -16,6 +16,7 @@ fi
 
 ######
 # Set defaults
+if [[ -z $LICENSE ]]; then LICENSE="decline"; fi
 if [[ -z $CLIENT_ID ]]; then CLIENT_ID=""; fi
 if [[ -z $CLIENT_SECRET ]]; then CLIENT_SECRET=""; fi
 if [[ -z $TENANT_ID ]]; then TENANT_ID=""; fi
