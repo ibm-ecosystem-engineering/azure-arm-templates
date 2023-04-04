@@ -129,8 +129,8 @@ function cli-download() {
 
     tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl
 
-    sudo mv ${TMP_DIR}/oc ${BIN_DIR}/oc
-    sudo mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
+    mv ${TMP_DIR}/oc ${BIN_DIR}/oc
+    mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
 }
 
 function reset-output() {
@@ -159,7 +159,7 @@ function subscription_status() {
     else
         STATUS=$(${BIN_DIR}/oc get csv -n ${SUB_NAMESPACE} ${CSV} -o json | jq -r '.status.phase')
     fi
-    log-output $STATUS
+    echo $STATUS
 }
 
 function wait_for_subscription() {
