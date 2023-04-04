@@ -62,6 +62,13 @@
                 "description": "Flag to determine whether to create a new managed identity for script execution"
             }
         },
+        "storageClass": {
+            "type": "string",
+            "defaultValue": "ocs-storagecluster-cephfs",
+            "metadata": {
+                "description": "Name of the RWX file storage class on the OpenShift cluster."
+            }
+        },
         "managedIdName": {
             "type": "string",
             "defaultValue": "[concat(parameters('namePrefix'),'-script-sp')]",
@@ -87,7 +94,7 @@
     },
     "variables": {
       "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
-      "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
+      "containerGroupName": "[concat(parameters('namePrefix'), '-cp4i-cg')]",
       "scriptName": "[concat(parameters('namePrefix'),'-cp4i-script')]",
       "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
       "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
@@ -127,7 +134,7 @@
                     },
                     {
                         "name": "STORAGE_CLASS",
-                        "value": "azure-file"
+                        "value": "[parameters('storageClass')]"
                     },
                     {
                         "name": "IBM_ENTITLEMENT_KEY",

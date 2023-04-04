@@ -14,6 +14,9 @@ if [[ -n $ENV_VAR_NOT_SET ]]; then
     exit 1
 fi
 
+log-output "INFO: ARO Cluster is set to : $ARO_CLUSTER"
+log-output "INFO: Resource group is set to : $RESOURCE_GROUP"
+
 ######
 # Set defaults
 if [[ -z $LICENSE ]]; then LICENSE="decline"; fi
@@ -81,7 +84,7 @@ fi
 #######
 # Create entitlement key secret for image pull if required
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then
-    log-output"INFO: Not setting IBM Entitlement key"
+    log-output "INFO: Not setting IBM Entitlement key"
     if [[ $LICENSE == "accept" ]]; then
         log-output "ERROR: License accepted but entitlement key not provided"
         exit 1
@@ -120,6 +123,9 @@ else
     log-output "INFO: IBM API Connect catalog source already installed"
 fi
 
+wait_for_catalog ibm-apiconnect-catalog
+log-output "INFO: Catalog source ibm-apiconnect-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-appconnect-catalog) ]]; then
     log-output "INFO: Installed IBM App Connect catalog source"
     if [[ -f ${WORKSPACE_DIR}/app-connect-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/app-connect-catalogsource.yaml; fi
@@ -142,6 +148,9 @@ EOF
 else
     log-output "INFO: IBM App Connect catalog source already installed"
 fi
+
+wait_for_catalog ibm-appconnect-catalog
+log-output "INFO: Catalog source ibm-appconnect-catalog is ready"
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-aspera-hsts-operator-catalog) ]]; then
     log-output "INFO: Installed IBM Aspera catalog source"
@@ -166,6 +175,9 @@ else
     log-output "INFO: IBM Aspera catalog source already installed"
 fi
 
+wait_for_catalog ibm-aspera-hsts-operator-catalog
+log-output "INFO: Catalog source ibm-aspera-hsts-operator-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-cloud-databases-redis-catalog) ]]; then
     log-output "INFO: Installed IBM Cloud databases Redis catalog source"
     if [[ -f ${WORKSPACE_DIR}/redis-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/redis-catalogsource.yaml; fi
@@ -188,6 +200,9 @@ EOF
 else
     log-output "INFO: IBM Cloud databases Redis catalog source already installed"
 fi
+
+wait_for_catalog ibm-cloud-databases-redis-catalog
+log-output "INFO: Catalog source ibm-cloud-databases-redis-catalog is ready"
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-common-service-catalog) ]]; then
     log-output "INFO: Installing IBM Common services catalog source"
@@ -212,6 +227,9 @@ else
     log-output "INFO: IBM common services catalog source already installed"
 fi
 
+wait_for_catalog ibm-common-service-catalog
+log-output "INFO: Catalog source ibm-common-service-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-datapower-operator-catalog) ]]; then
     log-output "INFO: Installing IBM Data Power catalog source"
     if [[ -f ${WORKSPACE_DIR}/data-power-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/data-power-catalogsource.yaml; fi
@@ -234,6 +252,9 @@ EOF
 else
     log-output "INFO: IBM Data Power catalog source already installed"
 fi
+
+wait_for_catalog ibm-datapower-operator-catalog
+log-output "INFO: Catalog source ibm-datapower-operator-catalog is ready"
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-eventstreams-catalog) ]]; then
     log-output "INFO: Installing IBM Event Streams catalog source"
@@ -258,6 +279,9 @@ else
     log-output "INFO: IBM Event Streams catalog source already exists"
 fi
 
+wait_for_catalog ibm-eventstreams-catalog
+log-output "INFO: Catalog source ibm-eventstreams-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-asset-repository-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Asset Repository catalog source"
     if [[ -f ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml; fi
@@ -280,6 +304,9 @@ EOF
 else
     log-output "INFO: IBM Integration Asset Repository catalog source already installed"
 fi
+
+wait_for_catalog ibm-integration-asset-repository-catalog
+log-output "INFO: Catalog source ibm-integration-asset-repository-catalog is ready"
 
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-operations-dashboard-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Operations Dashboard catalog source"
@@ -304,6 +331,9 @@ else
     log-output "INFO: IBM Integration Operations Dashboard catalog source already installed"
 fi
 
+wait_for_catalog ibm-integration-operations-dashboard-catalog
+log-output "INFO: Catalog source ibm-integration-operations-dashboard-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-platform-navigator-catalog) ]]; then
     log-output "INFO: Installing IBM Integration Platform Navigator catalog source"
     if [[ -f platform-navigator-catalogsource.yaml ]]; then rm platform-navigator-catalogsource.yaml; fi
@@ -327,6 +357,9 @@ else
     log-output "INFO: IBM Integration Platform Navigator catalog source already installed"
 fi
 
+wait_for_catalog ibm-integration-platform-navigator-catalog
+log-output "INFO: Catalog source ibm-integration-platform-navigator-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-mq-operator-catalog) ]]; then
     log-output "INFO: Installing IBM MQ Operator catalog source"
     if [[ -f ${WORKSPACE_DIR}/mq-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/mq-catalogsource.yaml; fi
@@ -349,6 +382,9 @@ EOF
 else
     log-output "INFO: IBM MQ catalog source already installed"
 fi
+
+wait_for_catalog ibm-mq-operator-catalog
+log-output "INFO: Catalog source ibm-mq-operator-catalog is ready"
 
 #######
 # Create operator group if not using cluster scope
@@ -655,6 +691,9 @@ EOF
     else
         log-output "INFO: Platform Navigator instance already exists for namespace ${INSTANCE_NAMESPACE}"
     fi
+
+    # Sleep 30 seconds to let navigator get created before checking status
+    sleep 30
 
     count=0
     while [[ $(oc get PlatformNavigator -n ${INSTANCE_NAMESPACE} ${INSTANCE_NAMESPACE}-navigator -o json | jq -r '.status.conditions[] | select(.type=="Ready").status') != "True" ]]; do

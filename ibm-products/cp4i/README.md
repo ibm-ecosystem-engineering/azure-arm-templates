@@ -23,7 +23,7 @@ It will deploy operators for the following CP4I components:
 
 An Azure Red Hat OpenShift (ARO) cluster with:
     - at least 6 nodes
-    - a minimum of 16 vCPUs and 64GB RAM per node
+    - a minimum of 16 vCPUs and 64GB RAM per worker node
     - OpenShift Data Foundation (ODF/OCS) installed 
     - A storage cluster installed with ODF with at least 0.5TB capacity
 

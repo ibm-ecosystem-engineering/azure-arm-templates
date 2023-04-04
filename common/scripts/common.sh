@@ -167,7 +167,7 @@ function wait_for_subscription() {
     export SUBSCRIPTION=${2}
     
     # Set default timeout of 15 minutes
-    if [[ -z $TIMEOUT ]]; then
+    if [[ -z ${3} ]]; then
         TIMEOUT=15
     else
         TIMEOUT=${3}
@@ -185,8 +185,44 @@ function wait_for_subscription() {
             exit 1
         fi
     done
+}
 
-    log-output $SUB_STATUS
+function catalog_status() {
+    # Gets the status of a catalogsource
+    # Usage:
+    #      catalog_status CATALOG
+
+    CATALOG=${1}
+
+    CAT_STATUS="$(${BIN_DIR}/oc get catalogsource -n openshift-marketplace $CATALOG -o json | jq -r '.status.connectionState.lastObservedState')"
+    echo $CAT_STATUS
+}
+
+function wait_for_catalog() {
+    # Waits for a catalog source to be ready
+    # Usage:
+    #      wait_for_catalog CATALOG [TIMEOUT]
+
+    CATALOG=${1}
+    # Set default timeout of 15 minutes
+    if [[ -z ${2} ]]; then
+        TIMEOUT=15
+    else
+        TIMEOUT=${2}
+    fi
+
+    export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
+
+    count=0;
+    while [[ $(catalog_status $CATALOG) != "READY" ]]; do
+        log-output "INFO: Waiting for catalog source $CATALOG to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
+        sleep 30
+        count=$(( $count + 1 ))
+        if (( $count > $TIMEOUT_COUNT )); then
+            log-output "ERROR: Timeout exceeded waiting for catalog source $CATALOG to be ready"
+            exit 1
+        fi
+    done   
 }
 
 function menu() {
