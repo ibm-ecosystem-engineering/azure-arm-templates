@@ -259,7 +259,7 @@
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",
-                "timeout": "PT30M",
+                "timeout": "PT90M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
