@@ -1,30 +1,36 @@
 #!/bin/bash
 
+source common.sh
+
 ######
 # Check environment variables
 ENV_VAR_NOT_SET=""
 
-if [[ -z $CLIENT_ID ]]; then ENV_VAR_NOT_SET="CLIENT_ID"; fi
-if [[ -z $CLIENT_SECRET ]]; then ENV_VAR_NOT_SET="CLIENT_SECRET"; fi
-if [[ -z $TENANT_ID ]]; then ENV_VAR_NOT_SET="TENANT_ID"; fi
-if [[ -z $SUBSCRIPTION_ID ]]; then ENV_VAR_NOT_SET="SUBSCRIPTION_ID"; fi
 if [[ -z $ARO_CLUSTER ]]; then ENV_VAR_NOT_SET="ARO_CLUSTER"; fi
 if [[ -z $RESOURCE_GROUP ]]; then ENV_VAR_NOT_SET="RESOURCE_GROUP"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
-    echo "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
+    log-output "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
     exit 1
 fi
 
+log-output "INFO: ARO Cluster is set to : $ARO_CLUSTER"
+log-output "INFO: Resource group is set to : $RESOURCE_GROUP"
+
 ######
 # Set defaults
+if [[ -z $LICENSE ]]; then LICENSE="decline"; fi
+if [[ -z $CLIENT_ID ]]; then CLIENT_ID=""; fi
+if [[ -z $CLIENT_SECRET ]]; then CLIENT_SECRET=""; fi
+if [[ -z $TENANT_ID ]]; then TENANT_ID=""; fi
+if [[ -z $SUBSCRIPTION_ID ]]; then SUBSCRIPTION_ID=""; fi
 if [[ -z $WORKSPACE_DIR ]]; then WORKSPACE_DIR="/workspace"; fi
 if [[ -z $BIN_DIR ]]; then export BIN_DIR="/usr/local/bin"; fi
 if [[ -z $TMP_DIR ]]; then TMP_DIR="${WORKSPACE_DIR}/tmp"; fi
 if [[ -z $NAMESPACE ]]; then export NAMESPACE="cp4i"; fi
 if [[ -z $CLUSTER_SCOPED ]]; then CLUSTER_SCOPED="false"; fi
 if [[ -z $REPLICAS ]]; then REPLICAS="1"; fi
-if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="azure-file"; fi
+if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="ocs-storagecluster-cephfs"; fi
 if [[ -z $INSTANCE_NAMESPACE ]]; then export INSTANCE_NAMESPACE=$NAMESPACE; fi
 
 ######
@@ -32,64 +38,10 @@ if [[ -z $INSTANCE_NAMESPACE ]]; then export INSTANCE_NAMESPACE=$NAMESPACE; fi
 mkdir -p ${WORKSPACE_DIR}
 mkdir -p ${TMP_DIR}
 
-function subscription_status() {
-    SUB_NAMESPACE=${1}
-    SUBSCRIPTION=${2}
-
-    CSV=$(${BIN_DIR}/oc get subscription -n ${SUB_NAMESPACE} ${SUBSCRIPTION} -o json | jq -r '.status.currentCSV')
-    if [[ "$CSV" == "null" ]]; then
-        STATUS="PendingCSV"
-    else
-        STATUS=$(${BIN_DIR}/oc get csv -n ${SUB_NAMESPACE} ${CSV} -o json | jq -r '.status.phase')
-    fi
-    echo $STATUS
-}
-
-function wait_for_subscription() {
-    SUB_NAMESPACE=${1}
-    export SUBSCRIPTION=${2}
-    
-    # Set default timeout of 15 minutes
-    if [[ -z $TIMEOUT ]]; then
-        TIMEOUT=15
-    else
-        TIMEOUT=${3}
-    fi
-
-    export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
-
-    count=0;
-    while [[ $(subscription_status $SUB_NAMESPACE $SUBSCRIPTION) != "Succeeded" ]]; do
-        echo "INFO: Waiting for subscription $SUBSCRIPTION to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
-        sleep 30
-        count=$(( $count + 1 ))
-        if (( $count > $TIMEOUT_COUNT )); then
-            echo "ERROR: Timeout exceeded waiting for subscription $SUBSCRIPTION to be ready"
-            exit 1
-        fi
-    done
-}
-
 #######
 # Download and install CLI's if they do not already exist
-ARCH=$(uname -m)
-OC_FILETYPE="linux"
-KUBECTL_FILETYPE="linux"
-OC_URL="https://mirror.openshift.com/pub/openshift-v4/${ARCH}/clients/ocp/stable/openshift-client-${OC_FILETYPE}.tar.gz"
-
 if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
-    echo "Downloading and installing oc and kubectl"
-    curl -sLo $TMP_DIR/openshift-client.tgz $OC_URL
-
-    if ! tar tzf $TMP_DIR/openshift-client.tgz 1> /dev/null 2> /dev/null; then
-        echo "ERROR: Tar file from $OC_URL is corrupted"
-        exit 1
-    fi
-
-    tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl
-
-    mv ${TMP_DIR}/oc ${BIN_DIR}/oc
-    mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
+    cli-download $BIN_DIR $TMP_DIR
 fi
 
 #######
@@ -97,86 +49,60 @@ fi
 az account show > /dev/null 2>&1
 if (( $? != 0 )); then
     # Login with service principal details
-    az login --service-principal -u "$CLIENT_ID" -p "$CLIENT_SECRET" -t "$TENANT_ID" > /dev/null 2>&1
-    if (( $? != 0 )); then
-        echo "ERROR: Unable to login to service principal. Check supplied details in credentials.properties."
-        exit 1
-    else
-        echo "INFO: Successfully logged on with service principal"
-    fi
-    az account set --subscription "$SUBSCRIPTION_ID" > /dev/null 2>&1
-    if (( $? != 0 )); then
-        echo "ERROR: Unable to use subscription id $SUBSCRIPTION_ID. Please check and try agian."
-        exit 1
-    else
-        echo "INFO: Successfully changed to subscription : $(az account show --query name -o tsv)"
-    fi
+    az-login $CLIENT_ID $CLIENT_SECRET $TENANT_ID $SUBSCRIPTION_ID
 else
-    echo "INFO: Using existing Azure CLI login"
+    log-output "INFO: Using existing Azure CLI login"
 fi
 
 #######
 # Login to cluster
-if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
-    echo "INFO: Logging into cluster"
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
-    CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-    ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
-else   
-    CURRENT_SERVER=$(${BIN_DIR}/oc status | grep server | awk '{printf $6}' | sed -e 's#^https://##; s#/##')
-    API_SERVER=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query apiserverProfile.url -o tsv | sed -e 's#^https://##; s#/##')
-    if [[ $CURRENT_SERVER == $API_SERVER ]]; then
-        echo "INFO: Already logged into cluster"
-    else
-        CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-        ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD
-    fi
-fi
+oc-login $ARO_CLUSTER $BIN_DIR
 
 ######
 # Wait for cluster operators to finish
 count=0
 while [[ $(${BIN_DIR}/oc get clusteroperators -o json | jq -r '.items[].status.conditions[] | select(.type=="Available") | .status' | grep False) ]]; do
-    echo "INFO: Waiting for cluster operators to finish installation. Waited $count minutes. Will wait up to 30 minutes."
+    log-output "INFO: Waiting for cluster operators to finish installation. Waited $count minutes. Will wait up to 30 minutes."
     sleep 60
     count=$(( $count + 1 ))
     if (( $count > 60 )); then
-        echo "ERROR: Timeout waiting for cluster operators to be available"
+        log-output "ERROR: Timeout waiting for cluster operators to be available"
         exit 1;    
     fi
 done
-echo "INFO: All OpenShift cluster operators available"
+log-output "INFO: All OpenShift cluster operators available"
 
 ######
 # Create namespace if it does not exist
 if [[ -z $(${BIN_DIR}/oc get namespaces | grep ${NAMESPACE}) ]]; then
-    echo "INFO: Creating namespace ${NAMESPACE}"
+    log-output "INFO: Creating namespace ${NAMESPACE}"
     ${BIN_DIR}/oc create namespace $NAMESPACE
 else
-    echo "INFO: Using existing namespace $NAMESPACE"
+    log-output "INFO: Using existing namespace $NAMESPACE"
 fi
 
 #######
 # Create entitlement key secret for image pull if required
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then
-    echo "INFO: Not setting IBM Entitlement key"
+    log-output "INFO: Not setting IBM Entitlement key"
     if [[ $LICENSE == "accept" ]]; then
-        echo "ERROR: License accepted but entitlement key not provided"
+        log-output "ERROR: License accepted but entitlement key not provided"
         exit 1
     fi
 else
     if [[ -z $(${BIN_DIR}/oc get secret -n ${NAMESPACE} | grep ibm-entitlement-key) ]]; then
-        echo "INFO: Creating entitlement key secret"
+        log-output "INFO: Creating entitlement key secret"
         ${BIN_DIR}/oc create secret docker-registry ibm-entitlement-key --docker-server=cp.icr.io --docker-username=cp --docker-password=$IBM_ENTITLEMENT_KEY -n $NAMESPACE
     else
-        echo "INFO: Using existing entitlement key secret"
+        log-output "INFO: Using existing entitlement key secret"
     fi
 fi
 
 ######
 # Install catalog sources
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-apiconnect-catalog) ]]; then
-    echo "INFO: Installing IBM API Connect catalog source"
+    log-output "INFO: Installing IBM API Connect catalog source"
+    if [[ -f ${WORKSPACE_DIR}/api-connect-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/api-connect-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/api-connect-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -194,11 +120,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/api-connect-catalogsource.yaml
 else
-    echo "INFO: IBM API Connect catalog source already installed"
+    log-output "INFO: IBM API Connect catalog source already installed"
 fi
 
+wait_for_catalog ibm-apiconnect-catalog
+log-output "INFO: Catalog source ibm-apiconnect-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-appconnect-catalog) ]]; then
-    echo "INFO: Installed IBM App Connect catalog source"
+    log-output "INFO: Installed IBM App Connect catalog source"
+    if [[ -f ${WORKSPACE_DIR}/app-connect-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/app-connect-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/app-connect-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -216,11 +146,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/app-connect-catalogsource.yaml
 else
-    echo "INFO: IBM App Connect catalog source already installed"
+    log-output "INFO: IBM App Connect catalog source already installed"
 fi
 
+wait_for_catalog ibm-appconnect-catalog
+log-output "INFO: Catalog source ibm-appconnect-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-aspera-hsts-operator-catalog) ]]; then
-    echo "INFO: Installed IBM Aspera catalog source"
+    log-output "INFO: Installed IBM Aspera catalog source"
+    if [[ -f ${WORKSPACE_DIR}/aspera-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/aspera-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/aspera-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -238,11 +172,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/aspera-catalogsource.yaml
 else
-    echo "INFO: IBM Aspera catalog source already installed"
+    log-output "INFO: IBM Aspera catalog source already installed"
 fi
 
+wait_for_catalog ibm-aspera-hsts-operator-catalog
+log-output "INFO: Catalog source ibm-aspera-hsts-operator-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-cloud-databases-redis-catalog) ]]; then
-    echo "INFO: Installed IBM Cloud databases Redis catalog source"
+    log-output "INFO: Installed IBM Cloud databases Redis catalog source"
+    if [[ -f ${WORKSPACE_DIR}/redis-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/redis-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/redis-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -260,11 +198,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/redis-catalogsource.yaml
 else
-    echo "INFO: IBM Cloud databases Redis catalog source already installed"
+    log-output "INFO: IBM Cloud databases Redis catalog source already installed"
 fi
 
+wait_for_catalog ibm-cloud-databases-redis-catalog
+log-output "INFO: Catalog source ibm-cloud-databases-redis-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-common-service-catalog) ]]; then
-    echo "INFO: Installing IBM Common services catalog source"
+    log-output "INFO: Installing IBM Common services catalog source"
+    if [[ -f ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -282,11 +224,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/common-svcs-catalogsource.yaml
 else
-    echo "INFO: IBM common services catalog source already installed"
+    log-output "INFO: IBM common services catalog source already installed"
 fi
 
+wait_for_catalog ibm-common-service-catalog
+log-output "INFO: Catalog source ibm-common-service-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-datapower-operator-catalog) ]]; then
-    echo "INFO: Installing IBM Data Power catalog source"
+    log-output "INFO: Installing IBM Data Power catalog source"
+    if [[ -f ${WORKSPACE_DIR}/data-power-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/data-power-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/data-power-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -304,11 +250,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/data-power-catalogsource.yaml
 else
-    echo "INFO: IBM Data Power catalog source already installed"
+    log-output "INFO: IBM Data Power catalog source already installed"
 fi
 
+wait_for_catalog ibm-datapower-operator-catalog
+log-output "INFO: Catalog source ibm-datapower-operator-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-eventstreams-catalog) ]]; then
-    echo "INFO: Installing IBM Event Streams catalog source"
+    log-output "INFO: Installing IBM Event Streams catalog source"
+    if [[ -f ${WORKSPACE_DIR}/event-streams-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/event-streams-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/event-streams-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -326,11 +276,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/event-streams-catalogsource.yaml
 else
-    echo "INFO: IBM Event Streams catalog source already exists"
+    log-output "INFO: IBM Event Streams catalog source already exists"
 fi
 
+wait_for_catalog ibm-eventstreams-catalog
+log-output "INFO: Catalog source ibm-eventstreams-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-asset-repository-catalog) ]]; then
-    echo "INFO: Installing IBM Integration Asset Repository catalog source"
+    log-output "INFO: Installing IBM Integration Asset Repository catalog source"
+    if [[ -f ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -348,11 +302,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/asset-repo-catalogsource.yaml
 else
-    echo "INFO: IBM Integration Asset Repository catalog source already installed"
+    log-output "INFO: IBM Integration Asset Repository catalog source already installed"
 fi
 
+wait_for_catalog ibm-integration-asset-repository-catalog
+log-output "INFO: Catalog source ibm-integration-asset-repository-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-operations-dashboard-catalog) ]]; then
-    echo "INFO: Installing IBM Integration Operations Dashboard catalog source"
+    log-output "INFO: Installing IBM Integration Operations Dashboard catalog source"
+    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -370,11 +328,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/ops-dashboard-catalogsource.yaml
 else
-    echo "INFO: IBM Integration Operations Dashboard catalog source already installed"
+    log-output "INFO: IBM Integration Operations Dashboard catalog source already installed"
 fi
 
+wait_for_catalog ibm-integration-operations-dashboard-catalog
+log-output "INFO: Catalog source ibm-integration-operations-dashboard-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-integration-platform-navigator-catalog) ]]; then
-    echo "INFO: Installing IBM Integration Platform Navigator catalog source"
+    log-output "INFO: Installing IBM Integration Platform Navigator catalog source"
+    if [[ -f platform-navigator-catalogsource.yaml ]]; then rm platform-navigator-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -392,11 +354,15 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/platform-navigator-catalogsource.yaml
 else
-    echo "INFO: IBM Integration Platform Navigator catalog source already installed"
+    log-output "INFO: IBM Integration Platform Navigator catalog source already installed"
 fi
 
+wait_for_catalog ibm-integration-platform-navigator-catalog
+log-output "INFO: Catalog source ibm-integration-platform-navigator-catalog is ready"
+
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-mq-operator-catalog) ]]; then
-    echo "INFO: Installing IBM MQ Operator catalog source"
+    log-output "INFO: Installing IBM MQ Operator catalog source"
+    if [[ -f ${WORKSPACE_DIR}/mq-catalogsource.yaml ]]; then rm ${WORKSPACE_DIR}/mq-catalogsource.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/mq-catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -414,14 +380,18 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/mq-catalogsource.yaml
 else
-    echo "INFO: IBM MQ catalog source already installed"
+    log-output "INFO: IBM MQ catalog source already installed"
 fi
+
+wait_for_catalog ibm-mq-operator-catalog
+log-output "INFO: Catalog source ibm-mq-operator-catalog is ready"
 
 #######
 # Create operator group if not using cluster scope
 if [[ $CLUSTER_SCOPED != "true" ]]; then
     if [[ -z $(${BIN_DIR}/oc get operatorgroups -n ${NAMESPACE} | grep $NAMESPACE-og ) ]]; then
-        echo "INFO: Creating operator group for namespace ${NAMESPACE}"
+        log-output "INFO: Creating operator group for namespace ${NAMESPACE}"
+        if [[ -f ${WORKSPACE_DIR}/operator-group.yaml ]]; then rm ${WORKSPACE_DIR}/operator-group.yaml; fi
         cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -434,7 +404,7 @@ spec:
 EOF
     ${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/operator-group.yaml
     else
-        echo "INFO: Using existing operator group"
+        log-output "INFO: Using existing operator group"
     fi
 fi
 
@@ -443,7 +413,8 @@ fi
 
 # IBM Common Services operator
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-common-service-operator-ibm-common-service-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Common Services"
+    log-output "INFO: Creating subscription for IBM Common Services"
+    if [[ -f ${WORKSPACE_DIR}/common-services-sub.yaml ]]; then rm ${WORKSPACE_DIR}/common-services-sub.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/common-services-sub.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -457,16 +428,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/common-services-sub.yaml
 else
-    echo "INFO: IBM Common Services subscription already exists"
+    log-output "INFO: IBM Common Services subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-common-service-operator-ibm-common-service-catalog-openshift-marketplace 15
-echo "INFO: IBM Common Services subscription ready"
-echo
+log-output "INFO: IBM Common Services subscription ready"
 
 # IBM Cloud Redis Databases
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-cloud-databases-redis-operator-ibm-cloud-databases-redis-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Cloud Redis databases"
+    log-output "INFO: Creating subscription for IBM Cloud Redis databases"
+    if [[ -f ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -480,16 +451,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/ibm-cloud-redis-subscription.yaml
 else
-    echo "INFO: IBM Cloud Redis databases subscription already exists"
+    log-output "INFO: IBM Cloud Redis databases subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-cloud-databases-redis-operator-ibm-cloud-databases-redis-catalog-openshift-marketplace 15
-echo "INFO: IBM Cloud Redis databases subscription ready"
-echo
+log-output "INFO: IBM Cloud Redis databases subscription ready"
 
 # Platform Navigator subscription
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-platform-navigator-ibm-integration-platform-navigator-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Integration Platform Navigator"
+    log-output "INFO: Creating subscription for IBM Integration Platform Navigator"
+    if [[ -f ${WORKSPACE_DIR}/platform-navigator-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/platform-navigator-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -503,16 +474,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/platform-navigator-subscription.yaml
 else
-    echo "INFO: IBM Integration Platform Navigator subscription already exists"
+    log-output "INFO: IBM Integration Platform Navigator subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-integration-platform-navigator-ibm-integration-platform-navigator-catalog-openshift-marketplace 15
-echo "INFO: IBM Integration Platform Navigator subscription ready"
-echo
+log-output "INFO: IBM Integration Platform Navigator subscription ready"
 
 # Aspera
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep aspera-hsts-operator-ibm-aspera-hsts-operator-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Aspera"
+    log-output "INFO: Creating subscription for IBM Aspera"
+    if [[ -f ${WORKSPACE_DIR}/aspera-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/aspera-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/aspera-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -526,16 +497,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/aspera-subscription.yaml
 else
-    echo "INFO: IBM Aspera subscription already exists"
+    log-output "INFO: IBM Aspera subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} aspera-hsts-operator-ibm-aspera-hsts-operator-catalog-openshift-marketplace 15
-echo "INFO: IBM Aspera subscription ready"
-echo
+log-output "INFO: IBM Aspera subscription ready"
 
 # App Connection
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-appconnect-ibm-appconnect-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM App Connect"
+    log-output "INFO: Creating subscription for IBM App Connect"
+    if [[ -f ${WORKSPACE_DIR}/app-connect-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/app-connect-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/app-connect-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -549,16 +520,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/app-connect-subscription.yaml
 else
-    echo "INFO: IBM App Connect Subscription already exists"
+    log-output "INFO: IBM App Connect Subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-appconnect-ibm-appconnect-catalog-openshift-marketplace 15
-echo "INFO: IBM App Connect subscription ready"
-echo
+log-output "INFO: IBM App Connect subscription ready"
 
 # Eventstreams
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-eventstreams-ibm-eventstreams-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating IBM Event Streams subscription"
+    log-output "INFO: Creating IBM Event Streams subscription"
+    if [[ -f ${WORKSPACE_DIR}/event-streams-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/event-streams-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/event-streams-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -572,16 +543,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/event-streams-subscription.yaml
 else
-    echo "INFO: IBM Event Streams subscription already exists"
+    log-output "INFO: IBM Event Streams subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-eventstreams-ibm-eventstreams-catalog-openshift-marketplace 15
-echo "INFO: IBM App Connect subscription ready"
-echo
+log-output "INFO: IBM App Connect subscription ready"
 
 # MQ
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-mq-ibm-mq-operator-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM MQ"
+    log-output "INFO: Creating subscription for IBM MQ"
+    if [[ -f ${WORKSPACE_DIR}/mq-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/mq-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/mq-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -595,16 +566,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/mq-subscription.yaml
 else
-    echo "INFO: IBM MQ subscription already exists"
+    log-output "INFO: IBM MQ subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-mq-ibm-mq-operator-catalog-openshift-marketplace 15
-echo "INFO: IBM MQ subscription ready"
-echo
+log-output "INFO: IBM MQ subscription ready"
 
 # Asset Repo
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-asset-repository-ibm-integration-asset-repository-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Integration Asset Repository"
+    log-output "INFO: Creating subscription for IBM Integration Asset Repository"
+    if [[ -f ${WORKSPACE_DIR}/asset-repo-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/asset-repo-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/asset-repo-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -618,16 +589,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/asset-repo-subscription.yaml
 else
-    echo "INFO: IBM Integration Asset Repository subscription already exists"
+    log-output "INFO: IBM Integration Asset Repository subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-integration-asset-repository-ibm-integration-asset-repository-catalog-openshift-marketplace 15
-echo "INFO: IBM Integration Asset Repository subscription ready"
-echo
+log-output "INFO: IBM Integration Asset Repository subscription ready"
 
 # Data power
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep datapower-operator-ibm-datapower-operator-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Data Power"
+    log-output "INFO: Creating subscription for IBM Data Power"
+    if [[ -f ${WORKSPACE_DIR}/data-power-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/data-power-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/data-power-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -641,16 +612,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/data-power-subscription.yaml
 else
-    echo "INFO: IBM Data Power subscription already exists"
+    log-output "INFO: IBM Data Power subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} datapower-operator-ibm-datapower-operator-catalog-openshift-marketplace 15
-echo "INFO: IBM Data Power subscription ready"
-echo
+log-output "INFO: IBM Data Power subscription ready"
 
 # API Connect
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-apiconnect-ibm-apiconnect-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM API Connect"
+    log-output "INFO: Creating subscription for IBM API Connect"
+    if [[ -f ${WORKSPACE_DIR}/api-connect-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/api-connect-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/api-connect-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -664,19 +635,16 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/api-connect-subscription.yaml
 else
-    echo "INFO: IBM API Connect subscription already exists"
+    log-output "INFO: IBM API Connect subscription already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-apiconnect-ibm-apiconnect-catalog-openshift-marketplace 15
-echo "INFO: IBM API Connect subscription ready"
-echo
+log-output "INFO: IBM API Connect subscription ready"
 
 # Operations Dashboard
 if [[ -z $(${BIN_DIR}/oc get subscriptions -n ${NAMESPACE} | grep ibm-integration-operations-dashboard-ibm-integration-operations-dashboard-catalog-openshift-marketplace) ]]; then
-    echo "INFO: Creating subscription for IBM Integration Operations Dashboard"
-    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml ]]; then
-        rm ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml
-    fi
+    log-output "INFO: Creating subscription for IBM Integration Operations Dashboard"
+    if [[ -f ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml ]]; then rm ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml; fi
     cat << EOF >> ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -690,22 +658,19 @@ spec:
 EOF
     ${BIN_DIR}/oc create -n ${NAMESPACE} -f ${WORKSPACE_DIR}/ops-dashboard-subscription.yaml
 else
-    echo "INFO: IBM Integration Operations Dashboard already exists"
+    log-output "INFO: IBM Integration Operations Dashboard already exists"
 fi
 
 wait_for_subscription ${NAMESPACE} ibm-integration-operations-dashboard-ibm-integration-operations-dashboard-catalog-openshift-marketplace 15
-echo "INFO: IBM Integration Operations Dashboard ready"
-echo
+log-output "INFO: IBM Integration Operations Dashboard ready"
 
 
 ######
 # Create platform navigator instance
 if [[ $LICENSE == "accept" ]]; then
     if [[ -z $(${BIN_DIR}/oc get PlatformNavigator -n ${INSTANCE_NAMESPACE} | grep ${INSTANCE_NAMESPACE}-navigator ) ]]; then
-        echo "INFO: Creating Platform Navigator instance"
-        if [[ -f ${WORKSPACE_DIR}/platform-navigator-instance.yaml ]]; then
-            rm ${WORKSPACE_DIR}/platform-navigator-instance.yaml
-        fi
+        log-output "INFO: Creating Platform Navigator instance"
+        if [[ -f ${WORKSPACE_DIR}/platform-navigator-instance.yaml ]]; then rm ${WORKSPACE_DIR}/platform-navigator-instance.yaml; fi
         cat << EOF >> ${WORKSPACE_DIR}/platform-navigator-instance.yaml
 apiVersion: integration.ibm.com/v1beta1
 kind: PlatformNavigator
@@ -724,19 +689,22 @@ spec:
 EOF
         ${BIN_DIR}/oc create -n ${INSTANCE_NAMESPACE} -f ${WORKSPACE_DIR}/platform-navigator-instance.yaml
     else
-        echo "INFO: Platform Navigator instance already exists for namespace ${INSTANCE_NAMESPACE}"
+        log-output "INFO: Platform Navigator instance already exists for namespace ${INSTANCE_NAMESPACE}"
     fi
 
+    # Sleep 30 seconds to let navigator get created before checking status
+    sleep 30
+
     count=0
-    while [[ $(oc get PlatformNavigator -n ${namespace} ${namespace}-navigator -o json | jq -r '.status.conditions[] | select(.type=="Ready").status') != "True" ]]; do
-        echo "INFO: Waiting for Platform Navigator instance to be ready. Waited $count minutes. Will wait up to 90 minutes."
+    while [[ $(oc get PlatformNavigator -n ${INSTANCE_NAMESPACE} ${INSTANCE_NAMESPACE}-navigator -o json | jq -r '.status.conditions[] | select(.type=="Ready").status') != "True" ]]; do
+        log-output "INFO: Waiting for Platform Navigator instance to be ready. Waited $count minutes. Will wait up to 90 minutes."
         sleep 60
         count=$(( $count + 1 ))
         if (( $count > 90)); then    # Timeout set to 90 minutes
-            echo "ERROR: Timout waiting for ${INSTANCE_NAMESPACE}-navigator to be ready"
+            log-output "ERROR: Timout waiting for ${INSTANCE_NAMESPACE}-navigator to be ready"
             exit 1
         fi
     done
 else
-    echo "INFO: License not accepted. Please manually install desired components"
+    log-output "INFO: License not accepted. Please manually install desired components"
 fi

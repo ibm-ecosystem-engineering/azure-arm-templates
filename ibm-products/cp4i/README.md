@@ -5,6 +5,8 @@
 
 Deploys Cloud Pak for Integration operators onto an existing Azure Red Hat OpenShift (ARO) cluster ready for the creation of instances.
 
+**Note that this deployment only works with ARO clusters with public API ingress**
+
 It will deploy operators for the following CP4I components:
 - Common Services
 - Cloud Redis Database
@@ -17,9 +19,17 @@ It will deploy operators for the following CP4I components:
 - API Connect
 - Operations Dashboard
 
+## Prerequisities
+
+An Azure Red Hat OpenShift (ARO) cluster with:
+    - at least 6 nodes
+    - a minimum of 16 vCPUs and 64GB RAM per worker node
+    - OpenShift Data Foundation (ODF/OCS) installed 
+    - A storage cluster installed with ODF with at least 0.5TB capacity
+
 ## Instructions - Azure Portal
 
-1. Press the `Deploy to Azure` button above.
+1. Press the `Deploy to Azure` button above (you may want to open in a new tab so you keep these instructions visible).
 2. Log into the Azure portal if not already
 3. Fill in the parameters according to your requirements
 
@@ -40,3 +50,19 @@ It will deploy operators for the following CP4I components:
 
 4. Click on `Review + Create`
 5. Once validation is completed, click on `Create` to deploy the operators.
+
+## Monitoring Deployment Status
+
+To monitor the status of the deployment:
+
+1. Navigate to the resource group being used for the deployment. 
+2. Locate the container instances resource label '`<namePrefix>`-cg'
+3. Navigate to Settings -> Containers in the left hand menu
+4. Select the running script container called 'az-scripts-*'
+5. From the lower box, select connect and enter
+![Container Access](images/container-access.png "container-access")
+6. From the command prompt, enter the following to access the deployment logs
+    ```shell
+    $ cd /mnt/azscripts/azscriptoutput
+    $ tail -f ./script-output/log
+    ```
