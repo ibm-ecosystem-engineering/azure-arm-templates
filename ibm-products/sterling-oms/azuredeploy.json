@@ -70,13 +70,6 @@
                 "description": "Name of the virtual network"
             }
         },
-        "endpointSubnetName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-endpoint-subnet')]",
-            "metadata": {
-                "description": "CIDR for the subnet if creating"
-            }
-        },
         "createManagedIdentity": {
             "type": "bool",
             "defaultValue": true,
@@ -159,7 +152,7 @@
     },
     "variables": {
       "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
-      "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
+      "containerGroupName": "[concat(parameters('namePrefix'), '-oms-cg')]",
       "scriptName": "[concat(parameters('namePrefix'),'-oms-script')]",
       "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
       "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
@@ -259,7 +252,10 @@
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),'ibm-products/sterling-oms/deploy-oms.sh')]",
-                "timeout": "PT30M",
+                "supportingScriptUris": [
+                    "[uri(variables('baseUrl'),'common/scripts/common.sh')]"
+                ],
+                "timeout": "PT90M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
@@ -299,7 +295,7 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('roleDefinitionId')]",
-                "principalId": "[reference(parameters('managedIdName')).principalId]",
+                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
             }

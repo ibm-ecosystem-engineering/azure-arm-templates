@@ -18,7 +18,7 @@
                 "label": "Network Settings",
                 "elements": [
 					{
-					"name": "mainVnet",
+					"name": "vnet",
 					"type": "Microsoft.Network.VirtualNetworkCombo",
 					"label": {
 						"virtualNetwork": "Virtual network",
@@ -312,7 +312,7 @@
 						"visible": true
 					},
 					{
-						"name": "legalAccept",
+						"name": "acceptLicense",
 						"type": "Microsoft.Common.OptionsGroup",
 						"label": "Sterling License Agreement",
 						"defaultValue": "Decline",

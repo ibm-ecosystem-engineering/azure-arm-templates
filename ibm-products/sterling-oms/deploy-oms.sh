@@ -1,61 +1,13 @@
 #!/bin/bash
 
-function log-output() {
-    MSG=${1}
+source common.sh
 
-    OUTPUT_DIR="/mnt/azscripts/azscriptoutput"
-    OUTPUT_FILE="script-output.log"
-    mkdir -p $OUTPUT_DIR
-
-    echo "$(date -u +"%Y-%m-%d %T") ${MSG}" >> ${OUTPUT_DIR}/${OUTPUT_FILE}
-    echo ${MSG}
-}
-
-function subscription_status() {
-    SUB_NAMESPACE=${1}
-    SUBSCRIPTION=${2}
-
-    CSV=$(${BIN_DIR}/oc get subscription -n ${SUB_NAMESPACE} ${SUBSCRIPTION} -o json | jq -r '.status.currentCSV')
-    if [[ "$CSV" == "null" ]]; then
-        STATUS="PendingCSV"
-    else
-        STATUS=$(${BIN_DIR}/oc get csv -n ${SUB_NAMESPACE} ${CSV} -o json | jq -r '.status.phase')
-    fi
-    echo $STATUS
-}
-
-function wait_for_subscription() {
-    SUB_NAMESPACE=${1}
-    export SUBSCRIPTION=${2}
-    
-    # Set default timeout of 15 minutes
-    if [[ -z $TIMEOUT ]]; then
-        TIMEOUT=15
-    else
-        TIMEOUT=${3}
-    fi
-
-    export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
-
-    count=0;
-    while [[ $(subscription_status $SUB_NAMESPACE $SUBSCRIPTION) != "Succeeded" ]]; do
-        log-output "INFO: Waiting for subscription $SUBSCRIPTION to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
-        sleep 30
-        count=$(( $count + 1 ))
-        if (( $count > $TIMEOUT_COUNT )); then
-            log-output "ERROR: Timeout exceeded waiting for subscription $SUBSCRIPTION to be ready"
-            exit 1
-        fi
-    done
-}
+# This moves the old log file to a backup
+reset-output
 
 ######
 # Check environment variables
 ENV_VAR_NOT_SET=""
-if [[ -z $CLIENT_ID ]]; then ENV_VAR_NOT_SET="CLIENT_ID"; fi
-if [[ -z $CLIENT_SECRET ]]; then ENV_VAR_NOT_SET="CLIENT_SECRET"; fi
-if [[ -z $TENANT_ID ]]; then ENV_VAR_NOT_SET="TENANT_ID"; fi
-if [[ -z $SUBSCRIPTION_ID ]]; then ENV_VAR_NOT_SET="SUBSCRIPTION_ID"; fi
 if [[ -z $ARO_CLUSTER ]]; then ENV_VAR_NOT_SET="ARO_CLUSTER"; fi
 if [[ -z $RESOURCE_GROUP ]]; then ENV_VAR_NOT_SET="RESOURCE_GROUP"; fi
 if [[ -z $OMS_NAMESPACE ]]; then ENV_VAR_NOT_SET="OMS_NAMESPACE"; fi
@@ -66,37 +18,53 @@ if [[ -z $STORAGE_ACCOUNT_NAME ]]; then ENV_VAR_NOT_SET="STORAGE_ACCOUNT_NAME"; 
 if [[ -z $FILE_TYPE ]]; then ENV_VAR_NOT_SET="FILE_TYPE"; fi
 if [[ -z $SC_NAME ]]; then ENV_VAR_NOT_SET="SC_NAME"; fi
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then ENV_VAR_NOT_SET="IBM_ENTITLEMENT_KEY"; fi
-if [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
+if [[ $LICENSE == "accept" ]] && [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
-    log-output "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
+    log-output "ERROR: Mandatory environment variable $ENV_VAR_NOT_SET not set. Please set and retry."
     exit 1
 fi
 
-# Setup workspace default to Azure deployment script output shared filesystem
-if [[ -z $WORKSPACE_DIR ]]; then
-    WORKSPACE_DIR="/workspace"
-fi
-mkdir -p $WORKSPACE_DIR
-
-# Setup binary directory
-if [[ -z $BIN_DIR ]]; then
-    BIN_DIR="/usr/local/bin"
-fi
-
-# Setup temporary directory
-if [[ -z $TMP_DIR ]]; then
-    TMP_DIR="${WORKSPACE_DIR}/tmp"
-fi
-mkdir -p $TMP_DIR
-
 #######
 # Set defaults (can be overriden with environment variables)
+if [[ -z $CLIENT_ID ]]; then CLIENT_ID=""; fi
+if [[ -z $CLIENT_SECRET ]]; then CLIENT_SECRET=""; fi
+if [[ -z $TENANT_ID ]]; then TENANT_ID=""; fi
+if [[ -z $SUBSCRIPTION_ID ]]; then SUBSCRIPTION_ID=""; fi
+if [[ -z $WORKSPACE_DIR ]]; then WORKSPACE_DIR="/workspace"; fi
+if [[ -z $BIN_DIR ]]; then export BIN_DIR="/usr/local/bin"; fi
+if [[ -z $TMP_DIR ]]; then TMP_DIR="${WORKSPACE_DIR}/tmp"; fi
 if [[ -z $PSQL_POD_NAME ]]; then export PSQL_POD_NAME="psql-client"; fi
 if [[ -z $DB_NAME ]]; then export DB_NAME="oms"; fi
 if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
+if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
+
+log-output "INFO: ARO Cluster is $ARO_CLUSTER"
+log-output "INFO: RESOURCE_GRUP is $RESOURCE_GROUP"
+log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
+log-output "INFO: ADMIN_PASSWORD is set"
+log-output "INFO: WHICH_OMS is $WHICH_OMS"
+log-output "INFO: ACR_NAME is $ACR_NAME"
+log-output "INFO: STORAGE_ACCOUNT_NAME is $STORAGE_ACCOUNT_NAME"
+log-output "INFO: FILE TYPE is $FILE_TYPE"
+log-output "INFO: SC_NAME is $SC_NAME"
+log-output "INFO: IBM_ENTITLEMENT_KEY is set"
+log-output "INFO: PSQL_HOST is $PSQL_HOST"
+log-output "INFO: WORKSPACE_DIR is $WORKSPACE_DIR"
+log-output "INFO: TMP_DIR is $TMP_DIR"
+log-output "INFO: BIN_DIR is $BIN_DIR"
+log-output "INFO: PSQL_POD_NAME is $PSQL_POD_NAME"
+log-output "INFO: DB_NAME is $DB_NAME"
+log-output "INFO: SCHEMA_NAME is $SCHEMA_NAME"
+log-output "INFO: OM_INSTANCE_NAME is $OM_INSTANCE_NAME"
+log-output "INFO: LICENSE state is $LICENSE"
+
+######
+# Create working directories
+mkdir -p ${WORKSPACE_DIR}
+mkdir -p ${TMP_DIR}
 
 #####
 # Download OC and kubectl
@@ -109,28 +77,7 @@ OC_URL="https://mirror.openshift.com/pub/openshift-v4/${ARCH}/clients/ocp/stable
 
 # Download and install CLI's if they do not already exist
 if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
-    log-output "INFO: Downloading and installing oc and kubectl"
-    curl -sLo $TMP_DIR/openshift-client.tgz $OC_URL
-
-    if ! tar tzf $TMP_DIR/openshift-client.tgz 1> /dev/null 2> /dev/null; then
-        log-output "ERROR: Tar file from $OC_URL is corrupted"
-        exit 1
-    fi
-
-    if ! error=$(tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl 2>&1) ; then
-        log-output "ERROR: Unable to extract oc or kubectl from tar file"
-        log-output "$error"
-    fi
-
-    if ! error=$(mv ${TMP_DIR}/oc ${BIN_DIR}/oc 2>&1) ; then
-        log-output "ERROR: Unable to move oc to $BIN_DIR"
-        log-output "$error"
-    fi
-
-    if ! error=$(mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl 2>&1) ; then
-        log-output "ERROR: Unabel to move kubectl to $BIN_DIR"
-        log-output "$error"
-    fi
+    cli-download $BIN_DIR $TMP_DIR
 fi
 
 #######
@@ -138,69 +85,21 @@ fi
 az account show > /dev/null 2>&1
 if (( $? != 0 )); then
     # Login with service principal details
-    az login --service-principal -u "$CLIENT_ID" -p "$CLIENT_SECRET" -t "$TENANT_ID" > /dev/null 2>&1
-    if (( $? != 0 )); then
-        log-output "ERROR: Unable to login to service principal. Check supplied details in credentials.properties."
-        exit 1
-    else
-        log-output "INFO: Successfully logged on with service principal"
-    fi
-    az account set --subscription "$SUBSCRIPTION_ID" > /dev/null 2>&1
-    if (( $? != 0 )); then
-        log-output "ERROR: Unable to use subscription id $SUBSCRIPTION_ID. Please check and try agian."
-        exit 1
-    else
-        log-output "INFO: Successfully changed to subscription : $(az account show --query name -o tsv)"
-    fi
+    az-login $CLIENT_ID $CLIENT_SECRET $TENANT_ID $SUBSCRIPTION_ID
 else
     log-output "INFO: Using existing Azure CLI login"
 fi
 
 ######
 # Pause to let cluster settle if just created before trying to login
-log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
-sleep 600
+if [[ $NEW_CLUSTER == "yes" ]]; then
+  log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
+  sleep 600
+fi
 
 #######
 # Login to cluster
-
-if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
-    log-output "INFO: Logging into OpenShift cluster $ARO_CLUSTER"
-    API_SERVER=$(az aro list --query "[?contains(name,'$ARO_CLUSTER')].[apiserverProfile.url]" -o tsv)
-    CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-    # Below loop added to allow authentication service to start on new clusters
-    count=0
-    while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD 1> /dev/null 2> /dev/null ; do
-        log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
-        sleep 60
-        count=$(( $count + 1 ))
-        if (( $count > 15 )); then
-            log-output "ERROR: Timeout waiting to log into cluster"
-            exit 1;    
-        fi
-    done
-    log-output "INFO: Successfully logged into cluster $ARO_CLUSTER"
-else   
-    CURRENT_SERVER=$(${BIN_DIR}/oc status | grep server | awk '{printf $6}' | sed -e 's#^https://##; s#/##')
-    API_SERVER=$(az aro list --query "[?contains(name,'$CLUSTER')].[apiserverProfile.url]" -o tsv)
-    if [[ $CURRENT_SERVER == $API_SERVER ]]; then
-        log-output "INFO: Already logged into cluster"
-    else
-        CLUSTER_PASSWORD=$(az aro list-credentials --name $ARO_CLUSTER --resource-group $RESOURCE_GROUP --query kubeadminPassword -o tsv)
-        # Below loop added to allow authentication service to start on new clusters
-        count=0
-        while ! ${BIN_DIR}/oc login $API_SERVER -u kubeadmin -p $CLUSTER_PASSWORD > /dev/null 2>&1 ; do
-            log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
-            sleep 60
-            count=$(( $count + 1 ))
-            if (( $count > 15 )); then
-                log-output "ERROR: Timeout waiting to log into cluster"
-                exit 1;    
-            fi
-        done
-        log-output "INFO: Successfully logged into cluster $ARO_CLUSTER"
-    fi
-fi
+oc-login $ARO_CLUSTER $BIN_DIR
 
 ######
 # Wait for cluster operators to finish deploying
@@ -557,47 +456,48 @@ while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME} | 
         exit 1
     fi
 done
-
-######
-# Create database and schema in db server
-
-# Confirm db server exists
-PSQL_NAME=$(log-output ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
-if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
-    log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
-    exit 1
-else
-    # Create database if it does not exist
-    az postgres flexible-server db show --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1
-    if (( $? != 0 )); then
-        log-output "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
-        if error=$(az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP 2>&1) ; then
-            log-output "INFO: Successfully created database $DB_NAME on server $PSQL_NAME" 
-        else
-            log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
-            log-output "$error"
-        fi
-    else
-        log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
-    fi
-
-    # Create schema if it does not exist
-    if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
-        log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
-        if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
-            log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
-        else
-            log-output "FAILED: Unable to create schema $SCHEMA_NAME"
-            log-output "$error"
-        fi
-    else
-        log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
-    fi
-fi
+log-output "INFO: PSQL POD $PSQL_POD_NAME successfully started"
 
 #######
 # Create OMEnvironment
-if [[ $LICENSE == "accept" ]] && [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+if [[ $LICENSE == "accept" ]]; then
+  if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+
+    # Confirm db server exists
+    PSQL_NAME=$(log-output ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
+    if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
+        log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
+        exit 1
+    else
+        # Create database if it does not exist
+        az postgres flexible-server db show --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1
+        if (( $? != 0 )); then
+            log-output "INFO: Creating database $DB_NAME in PostgreSQL server $PSQL_NAME"
+            if error=$(az postgres flexible-server db create --database-name $DB_NAME --server-name $PSQL_NAME --resource-group $RESOURCE_GROUP 2>&1) ; then
+                log-output "INFO: Successfully created database $DB_NAME on server $PSQL_NAME" 
+            else
+                log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
+                log-output "$error"
+            fi
+        else
+            log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
+        fi
+
+        # Create schema if it does not exist
+        if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
+            log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
+            if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
+                log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
+            else
+                log-output "FAILED: Unable to create schema $SCHEMA_NAME"
+                log-output "$error"
+            fi
+        else
+            log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
+        fi
+    fi
+
+
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     if [[ -f ${WORKSPACE_DIR}/omenvironment.yaml ]]; then
@@ -737,8 +637,11 @@ EOF
         log-output "FAILED: Unable to create OMEnvironment"
         log-output "$error"
     fi
-else
+  else
     log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
+  fi
+else
+    log-output "INFO: License not accepted. Manually create instance"
 fi
 
 #### Wait for pods to start
