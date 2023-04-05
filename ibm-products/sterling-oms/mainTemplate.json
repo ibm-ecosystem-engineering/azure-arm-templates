@@ -99,7 +99,7 @@
         },
         "vnetName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-vnet')]",
+            "defaultValue": "vnet",
             "metadata": {
                 "description": "Name of the virtual network"
             }
@@ -118,6 +118,13 @@
                 "description": "CIDR for the control subnet"
             }
         },
+        "controlSubnetName": {
+            "type": "string",
+            "defaultValue": "control-subnet",
+            "metadata": {
+                "description": "Name of the OpenShift control subnet"
+            }
+        },
         "workerSubnetCIDR": {
             "type": "string",
             "defaultValue": "10.0.1.0/24",
@@ -125,11 +132,25 @@
                 "description": "CIDR for the worker subnet"
             }
         },
-        "ngwName": {
+        "workerSubnetName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-ngw')]",
+            "defaultValue": "worker-subnet",
+            "metadata": {
+                "description": "Name of the OpenShift worker subnet"
+            }
+        },
+        "natGwName": {
+            "type": "string",
+            "defaultValue": "natGateway",
             "metadata": {
                 "description": "Name of the NAT Gateway"
+            }
+        },
+        "gwPublicIPName": {
+            "type": "string",
+            "defaultValue": "ngw-pip",
+            "metadata": {
+                "description": "Name of the NAT gateway public IP address"
             }
         },
         "bastionSubnetCIDR": {
@@ -257,7 +278,7 @@
         },
         "endpointSubnetName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-endpoint-subnet')]",
+            "defaultValue": "endpoint-subnet",
             "metadata": {
                 "description": "CIDR for the subnet if creating"
             }
@@ -303,6 +324,13 @@
                 "description": "CIDR for the database subnet"
             }
         },
+        "databaseSubnetName": {
+            "type": "string",
+            "defaultValue": "data-subnet",
+            "metadata": {
+                "description": "Name of the subnet for the database service."
+            }
+        },
         "omsNamespace": {
             "type": "string",
             "defaultValue": "oms",
@@ -343,34 +371,92 @@
             }
         },
         {
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2021-04-01",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-07-01",
             "condition": "[parameters('deployVNet')]",
-            "name": "virtual-network",
+            "name": "[parameters('vnetName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/natGateways', parameters('natGwName'))]"
+            ],
             "properties": {
-                "mode": "Incremental",
-                "templateLink": {
-                    "uri": "[uri(variables('baseUrl'),'networking/base-vnet/azuredeploy.json')]",
-                    "contentVersion":"1.0.0.0"
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnetCIDR')]"
+                    ]
                 },
-                "parameters": {
-                    "namePrefix": {
-                        "value": "[parameters('namePrefix')]"
+                "subnets": [
+                    {
+                        "name": "[parameters('controlSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('controlSubnetCIDR')]",
+                            "privateLinkServiceNetworkPolicies": "Disabled",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                }
+                            ]
+                        }
                     },
-                    "vnetCIDR": {
-                        "value": "[parameters('vnetCIDR')]"
+                    {
+                        "name": "[parameters('workerSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('workerSubnetCIDR')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                }
+                            ]
+                        }
                     },
-                    "controlSubnetCIDR": {
-                        "value": "[parameters('controlSubnetCIDR')]"
-                    },
-                    "workerSubnetCIDR": {
-                        "value": "[parameters('workerSubnetCIDR')]"
-                    },
-                    "natGwName": {
-                        "value": "[parameters('ngwName')]"
+                    {
+                        "name": "[parameters('endpointSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('endpointSubnetCIDR')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                }
+                            ],
+                            "privateLinkServiceNetworkPolicies": "Enabled",
+                            "privateEndpointNetworkPolicies": "Disabled"
+                        }
                     }
-                }
+                ]
             }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployVNet')]",
+            "name": "[parameters('gwPublicIPName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+            },
+            "sku": {
+                "name": "Standard"
+            }
+        },
+        {
+            "type": "Microsoft.Network/natGateways",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployVNet')]",
+            "name": "[parameters('natGwName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIpAddresses": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/publicIpAddresses/', parameters('gwPublicIPName'))]"
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('gwPublicIPName'))]"
+            ]
         },
         {
             "type": "Microsoft.Resources/deployments",
@@ -378,7 +464,7 @@
             "condition": "[parameters('deployBastion')]",
             "name": "bastion",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -405,7 +491,7 @@
             "condition": "[parameters('deployDevVM')]",
             "name": "dev-vm",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
                 "[resourceId('Microsoft.Resources/deployments', 'bastion')]"
             ],
             "properties": {
@@ -425,7 +511,7 @@
                         "value": "[parameters('devSubnetCIDR')]"
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "adminUserName": {
                         "value": "[parameters('adminUserName')]"
@@ -434,7 +520,7 @@
                         "value": "[parameters('adminPassword')]"
                     },
                     "ngwName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['ngwName'].value]"
+                        "value": "[parameters('natGwName')]"
                     }
                 }
             }
@@ -446,7 +532,7 @@
             "comments": "Deploys Azure Red Hat Openshift on existing VNet and subnets",
             "name": "aro",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
                 "[resourceId('Microsoft.Resources/deployments', 'private-fileshare')]"
             ],
             "properties": {
@@ -463,13 +549,13 @@
                         "value": false
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "controlSubnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['controlSubnetName'].value]"
+                        "value": "[parameters('controlSubnetName')]"
                     },
                     "workerSubnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['workerSubnetName'].value]"
+                        "value": "[parameters('workerSubnetName')]"
                     },
                     "spClientId": {
                         "value": "[parameters('spClientId')]"
@@ -520,33 +606,12 @@
             }
         },
         {
-            "type": "Microsoft.Network/virtualNetworks/subnets",
-            "apiVersion": "2020-11-01",
-            "comments": "This subnet is for the private endpoints of ACR and file share",
-            "condition": "[or(parameters('deployFileShare'), parameters('deployACR'))]",
-            "name": "[concat(parameters('vnetName'),'/',parameters('endpointSubnetName'))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]"
-            ],
-            "properties": {
-                "addressPrefix": "[parameters('endpointSubnetCIDR')]",
-                "serviceEndpoints": [
-                    {
-                        "service": "Microsoft.ContainerRegistry"
-                    }
-                ],
-                "privateLinkServiceNetworkPolicies": "Enabled",
-                "privateEndpointNetworkPolicies": "Disabled"
-            }
-        },
-        {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
             "condition": "[parameters('deployFileShare')]",
             "name": "private-fileshare",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('endpointSubnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
             ],
             "properties": {
@@ -563,7 +628,7 @@
                         "value": "[parameters('storageAccountName')]"
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "privateStorageEndpointName": {
                         "value": "[parameters('privateStorageEndpointName')]"
@@ -592,8 +657,7 @@
             "condition": "[parameters('deployACR')]",
             "name": "private-acr",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('endpointSubnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
             ],
             "properties": {
@@ -610,7 +674,7 @@
                         "value": "[parameters('registryName')]"
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "registrySku": {
                         "value": "[parameters('registrySku')]"
@@ -639,7 +703,7 @@
             "condition": "[parameters('deployPostgres')]",
             "name": "postgresql",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'virtual-network')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
             ],
             "properties": {
@@ -665,10 +729,13 @@
                         "value": "[parameters('workspaceName')]"
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "createSubnet": {
                         "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('databaseSubnetName')]"
                     },
                     "subnetCIDR": {
                         "value": "[parameters('databaseSubnetCIDR')]"
@@ -717,10 +784,7 @@
                         "value": "[concat(parameters('namePrefix'),'deployscripts')]"
                     },
                     "vnetName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','virtual-network')).outputs['vnetName'].value]"
-                    },
-                    "endpointSubnetName": {
-                        "value": "[parameters('endpointSubnetName')]"
+                        "value": "[parameters('vnetName')]"
                     },
                     "createManagedIdentity": {
                         "value": true
