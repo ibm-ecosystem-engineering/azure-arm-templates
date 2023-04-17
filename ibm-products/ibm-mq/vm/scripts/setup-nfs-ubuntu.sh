@@ -23,7 +23,7 @@ function log-output() {
 # Set defaults
 if [[ -z $OUTPUT_DIR ]]; then OUTPUT_DIR="$(pwd)"; mkdir -p $OUTPUT_DIR;  fi
 if [[ -z $NEW_VM ]]; then NEW_VM=true; fi
-if [[ -z $SHARE_PATH ]]; then SHARE_PATH="/MQHQ"; fi
+if [[ -z $SHARE_PATH ]]; then SHARE_PATH="/MQHA"; fi
 
 # Parse cli parameters
 if [[ -z $1 ]]; then
