@@ -25,8 +25,8 @@
 						"subnets": "Subnets"
 					},
 					"toolTip": {
-						"virtualNetwork": "",
-						"subnets": ""
+						"virtualNetwork": "Selecting an existing VNet or enter the name of a new one",
+						"subnets": "The name and CIDR for the subnet"
 					},
 					"defaultValue": {
 						"name": "vnet",
@@ -131,7 +131,7 @@
 						"name": "masterNodes",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Master VM Size",
-						"toolTip": "",
+						"toolTip": "The size of the master nodes",
 						"recommendedSizes": [
 							"Standard_D8s_v3",
 							"Standard_D16s_v3",
@@ -172,7 +172,7 @@
 						"name": "workerNodes",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Worker VM Size",
-						"toolTip": "",
+						"toolTip": "The size of the worker nodes",
 						"defaultValue": "Standard_D4s_v3",
 						"recommendedSizes": [
 							"Standard_D4s_v3",
@@ -246,7 +246,7 @@
 							"label": "Worker Node Quantity",
 							"defaultValue": 3,
 							"showStepMarkers": false,
-							"toolTip": "Select the number of worker nodes",
+							"toolTip": "The number of worker nodes",
 							"constraints": {
 								"required": false
 							},
@@ -258,7 +258,6 @@
 						"label": "OpenShift Resource Provider Service Prinicpal Id",
 						"defaultValue": "",
 						"toolTip": "Refer to https://learn.microsoft.com/en-us/azure/openshift/quickstart-openshift-arm-bicep-template?pivots=aro-arm#get-the-service-principal-object-id-for-the-openshift-resource-provider---azure-cli for details",
-						"placeholder": "",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
@@ -276,7 +275,6 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Red Hat Pull Secret",
 						"toolTip": "Refer to https://console.redhat.com/openshift/install/pull-secret",
-						"placeholder": "",
 						"multiLine": true,
 						"constraints": {
 						  "required": true,
@@ -337,7 +335,6 @@
 						"label": "Namespace for Sterling OMS",
 						"defaultValue": "oms",
 						"toolTip": "Namespace for Sterling OMS",
-						"placeholder": "",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
@@ -355,8 +352,7 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Sterling OMS Image to Install",
 						"defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
-						"toolTip": "",
-						"placeholder": "",
+						"toolTip": "The OMS image to deploy",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
