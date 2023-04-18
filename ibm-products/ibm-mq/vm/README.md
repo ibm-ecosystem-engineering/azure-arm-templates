@@ -3,9 +3,18 @@
 ## Ubuntu
 
 1. Deploy the Azure infrastructure
+
+[![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Fibm-products%2Fibm-mq%2Fvm%2Fazuredeploy.json)
+[![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Fibm-products%2Fibm-mq%2Fvm%2Fazuredeploy.json)
+
     1. Click on the Deploy to Azure button above (in a new tab if you want to keep these instructions)
     2. Complete the parameters
-    3. Create the installation
+        - Select a 3 to 5 alphanumeric digit name prefix for the resources.
+        - Choose the VM size if different than the Standard_D4s_v3 default
+        - Select the OS disk type
+        - Select Ubuntu 20.04 LTS for the OS Version
+        - Generate a new key pair or use an existing one. Save the private key locally to your local machine as it will be needed for bastion access to the VMs
+    3. Press Review + Create to deploy the installation
 
 2. Download or copy the MQ binary tar file to both the active and standby VMs to /tmp
 
