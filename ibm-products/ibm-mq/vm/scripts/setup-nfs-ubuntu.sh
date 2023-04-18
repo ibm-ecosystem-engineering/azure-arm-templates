@@ -65,7 +65,7 @@ fi
 # Mount the shared NFS drive
 log-output "INFO: Mounting share drive"
 sudo mkdir -p $SHARE_PATH
-sudo mount -t nfs ${STORAGE_ACCOUNT}.file.core.windows.net:/${STORAGE_ACCOUNT}/${SHARE_NAME} ${SHARE_PATH} -o vers=4,minorversion=1,sec=sys
+sudo mount -t nfs ${STORAGE_ACCOUNT}.file.core.windows.net:/${STORAGE_ACCOUNT}/${SHARE_NAME} ${SHARE_PATH} -o vers=4,minorversion=1,sec=sys,noexec,nosuid,nodev
 if (( $? != 0 )); then
     log-output "ERROR: Unable to mount ${STORAGE_ACCOUNT}.file.core.windows.net:/${STORAGE_ACCOUNT}/${SHARE_NAME} to ${SHARE_PATH}"
     exit 1
@@ -76,7 +76,7 @@ log-output "INFO: Setting up fstab with share mount"
 if [[ $(cat /etc/fstab | grep ${SHARE_NAME}) ]]; then
     log-output "INFO: $SHARE_NAME already configured in fstab"
 else
-    echo "${STORAGE_ACCOUNT}.file.core.windows.net:/${STORAGE_ACCOUNT}/${SHARE_NAME} ${SHARE_PATH} nfs rw,hard,noatime,nolock,vers=4,tcp,_netdev 0 0" | sudo tee -a /etc/fstab
+    echo "${STORAGE_ACCOUNT}.file.core.windows.net:/${STORAGE_ACCOUNT}/${SHARE_NAME} ${SHARE_PATH} nfs vers=4,minorversion=1,sec=sys,noexec,nosuid,nodev 0 0" | sudo tee -a /etc/fstab
     if (( $? != 0 )); then
         log-output "FAIL: Unable to write to fstab. Please update manually before reboot"
     fi

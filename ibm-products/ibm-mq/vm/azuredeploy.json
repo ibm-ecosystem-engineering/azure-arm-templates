@@ -284,13 +284,6 @@
             "metadata": {
                 "description": "Github branch for linked deployments."
             }
-        },
-        "scriptURI": {
-            "type": "string",
-            "defaultValue": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/ibm-products/')]",
-            "metadata": {
-                "description": "URI for the scripts to run post virtual machine creation"
-            }
         }
     },
     "variables": {
@@ -329,19 +322,19 @@
         },
         "imageReference": {
             "Ubuntu 18.04 LTS": {
-                "publisher": "Canonical",
+                "publisher": "canonical",
                 "offer": "UbuntuServer",
                 "sku": "18_04-lts-gen2",
                 "version": "latest"
             },
             "Ubuntu 20.04 LTS": {
-                "publisher": "Canonical",
+                "publisher": "canonical",
                 "offer": "0001-com-ubuntu-server-focal",
                 "sku": "20_04-lts-gen2",
                 "version": "latest"
             },
             "Ubuntu 22.04 LTS": {
-                "publisher": "Canonical",
+                "publisher": "canonical",
                 "offer": "0001-com-ubuntu-server-jammy",
                 "sku": "22_04-lts-gen2",
                 "version": "latest"
@@ -658,7 +651,7 @@
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
             "apiVersion": "2022-03-01",
-            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'Canonical'), bool('true'), bool('false'))]",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'canonical'), bool('true'), bool('false'))]",
             "location": "[parameters('location')]",
             "name": "[concat(variables('activeVMName'),'/','setup-nfs-ubuntu')]",
             "dependsOn": [
@@ -672,7 +665,7 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {
                     "fileUris": [
-                        "[concat(variables('baseUrl'),'/ibm-products/ibm-mq/vm/scripts/')]"
+                        "[concat(variables('baseUrl'),'ibm-products/ibm-mq/vm/scripts/setup-nfs-ubuntu.sh')]"
                     ],
                     "commandToExecute": "[concat('/bin/bash setup-nfs-ubuntu.sh ',parameters('storageAccountName'),' ',parameters('mqsharename'))]"
                 }
@@ -681,7 +674,7 @@
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
             "apiVersion": "2022-03-01",
-            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'Canonical'), bool('true'), bool('false'))]",
+            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'canonical'), bool('true'), bool('false'))]",
             "location": "[parameters('location')]",
             "name": "[concat(variables('standbyVMName'),'/','setup-nfs-ubuntu')]",
             "dependsOn": [
@@ -695,7 +688,7 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {
                     "fileUris": [
-                        "[concat(variables('baseUrl'),'/ibm-products/ibm-mq/vm/scripts/')]"
+                        "[concat(variables('baseUrl'),'ibm-products/ibm-mq/vm/scripts/setup-nfs-ubuntu.sh')]"
                     ],
                     "commandToExecute": "[concat('/bin/bash setup-nfs-ubuntu.sh ',parameters('storageAccountName'),' ',parameters('mqsharename'))]"
                 }

@@ -2,7 +2,10 @@
 
 ########################################################
 #
-# This script will install and configure 
+# This script will install and configure IBM MQ on Ubuntu
+# This script should be run as a non-root user with 
+# sudo access.
+#
 ########################################################
 
 function usage()
@@ -70,3 +73,4 @@ sudo mkdir -p ${SHARE_PATH}/qmgrs
 
 # Set permissions on shared directory
 sudo chown -R mqm:mqm ${SHARE_PATH}
+sudo chmod -R ug+rwx ${SHARE_PATH}
