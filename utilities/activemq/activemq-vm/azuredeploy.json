@@ -424,7 +424,7 @@
                 "type": "CustomScript",
                 "typeHandlerVersion": "2.0",
                 "autoUpgradeMinorVersion": true,
-                "settings": {
+                "protectedSettings": {
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'activemq-config.sh')]"
                     ],
@@ -446,7 +446,7 @@
                 "type": "CustomScript",
                 "typeHandlerVersion": "2.0",
                 "autoUpgradeMinorVersion": true,
-                "settings": {
+                "protectedSettings": {
                     "fileUris": [
                         "[concat(parameters('scriptURI'),'activemq-rhel.sh')]"
                     ],
