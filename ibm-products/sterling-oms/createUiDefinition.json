@@ -9,7 +9,15 @@
                 "type": "Microsoft.Common.TextBox",
                 "label": "Name Prefix",
                 "defaultValue": "",
-                "toolTip": "Prefix for created resources."
+                "toolTip": "Prefix for created resources.",
+				"constraints":{
+					"validations": [
+						{
+							"regex": "^[a-zA-Z]+[a-z0-9A-Z]{2,10}$",
+							"message": "Only alphanumeric charactors are allowed, the first character must be a letter and must be between 3 and 10 characters in length."
+						}
+					]
+				}
             }
          ],
         "steps": [
@@ -120,13 +128,6 @@
 				"name": "openshift",
 				"label": "OpenShift",
 				"elements": [
-					{
-						"name": "clusterName",
-						"label": "Cluster Name",
-						"type": "Microsoft.Common.TextBox",
-						"tooltip": "Name of the ARO Cluster",
-						"defaultValue": "[concat(basics('namePrefix'), '-aro')]"
-					},
 					{
 						"name": "masterNodes",
 						"type": "Microsoft.Compute.SizeSelector",
@@ -280,8 +281,12 @@
 						  "required": true,
 						  "validations": [
 							{
+								"regex": "{.*:{.*:.*}}",
+								"message": "Pull secret must be valid"
+							},
+							{
 								"isValid": "[startsWith( steps('openshift').pullSecret, '{\"auths\":' )]",
-								"message": "Must be a valid pull secret"
+								"message": "Pull secret must start with \"auths\""
 							}
 						  ]
 						},
@@ -295,9 +300,10 @@
 				"elements": [
 					{
 						"name": "ibmEntitlementKey",
-						"type": "Microsoft.Common.PasswordBox",						
+						"type": "Microsoft.Common.PasswordBox",	
+						"toolTip": "API Key for IBM registry entitlement to image",					
 						"label": {
-							"password": "IBM Entitlement Key"
+							"password": "API Key"
 						},
 						"constraints": {
 							"required": true,
@@ -305,7 +311,7 @@
 							"validationMessage": "Key must be at least 100 characters long, contain only numbers, letters, underscores, dots and dashes"
                 		},
 						"options": {
-							"hideConfirmation": true
+							"hideConfirmation": false
 						},
 						"visible": true
 					},
@@ -313,6 +319,7 @@
 						"name": "acceptLicense",
 						"type": "Microsoft.Common.OptionsGroup",
 						"label": "Sterling License Agreement",
+						"toolTip": "Acceptance of license terms is required to instantiate instance",
 						"defaultValue": "Decline",
 						"constraints": {
 							"required": true,
@@ -376,7 +383,12 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Admin Username",
 						"defaultValue": "azureuser",
-						"toolTip": "Administrator username for deployed VMs"
+						"toolTip": "Administrator username for deployed VMs",
+						"constraints": {
+							"required": true,
+							"regex": "^[A-Za-z0-9]{5,}$",
+							"validationMessage": "Must be only alphanumeric and 5 or more characters long"
+						}
 					},
 					{
 						"name": "adminPassword",
