@@ -9,7 +9,15 @@
                 "type": "Microsoft.Common.TextBox",
                 "label": "Name Prefix",
                 "defaultValue": "",
-                "toolTip": "Prefix for created resources."
+                "toolTip": "Prefix for created resources.",
+				"constraints":{
+					"validations": [
+						{
+							"regex": "^[a-zA-Z]+[a-z0-9A-Z]{2,10}$",
+							"message": "Only alphanumeric charactors are allowed, the first character must be a letter and must be between 3 and 10 characters in length."
+						}
+					]
+				}
             }
          ],
         "steps": [
@@ -25,8 +33,8 @@
 						"subnets": "Subnets"
 					},
 					"toolTip": {
-						"virtualNetwork": "",
-						"subnets": ""
+						"virtualNetwork": "Selecting an existing VNet or enter the name of a new one",
+						"subnets": "The name and CIDR for the subnet"
 					},
 					"defaultValue": {
 						"name": "vnet",
@@ -66,7 +74,7 @@
 						"bastionSubnet": {
 							"label": "Bastion Subnet",
 							"defaultValue": {
-								"name": "bastion-subnet",
+								"name": "AzureBastionSubnet",
 								"addressPrefixSize": "/24"
 							},
 							"constraints": {
@@ -121,17 +129,10 @@
 				"label": "OpenShift",
 				"elements": [
 					{
-						"name": "clusterName",
-						"label": "Cluster Name",
-						"type": "Microsoft.Common.TextBox",
-						"tooltip": "Name of the ARO Cluster",
-						"defaultValue": "[concat(basics('namePrefix'), '-aro')]"
-					},
-					{
 						"name": "masterNodes",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Master VM Size",
-						"toolTip": "",
+						"toolTip": "The size of the master nodes",
 						"recommendedSizes": [
 							"Standard_D8s_v3",
 							"Standard_D16s_v3",
@@ -172,7 +173,7 @@
 						"name": "workerNodes",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Worker VM Size",
-						"toolTip": "",
+						"toolTip": "The size of the worker nodes",
 						"defaultValue": "Standard_D4s_v3",
 						"recommendedSizes": [
 							"Standard_D4s_v3",
@@ -246,7 +247,7 @@
 							"label": "Worker Node Quantity",
 							"defaultValue": 3,
 							"showStepMarkers": false,
-							"toolTip": "Select the number of worker nodes",
+							"toolTip": "The number of worker nodes",
 							"constraints": {
 								"required": false
 							},
@@ -258,7 +259,6 @@
 						"label": "OpenShift Resource Provider Service Prinicpal Id",
 						"defaultValue": "",
 						"toolTip": "Refer to https://learn.microsoft.com/en-us/azure/openshift/quickstart-openshift-arm-bicep-template?pivots=aro-arm#get-the-service-principal-object-id-for-the-openshift-resource-provider---azure-cli for details",
-						"placeholder": "",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
@@ -276,14 +276,17 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Red Hat Pull Secret",
 						"toolTip": "Refer to https://console.redhat.com/openshift/install/pull-secret",
-						"placeholder": "",
 						"multiLine": true,
 						"constraints": {
 						  "required": true,
 						  "validations": [
 							{
+								"regex": "{.*:{.*:.*}}",
+								"message": "Pull secret must be valid"
+							},
+							{
 								"isValid": "[startsWith( steps('openshift').pullSecret, '{\"auths\":' )]",
-								"message": "Must be a valid pull secret"
+								"message": "Pull secret must start with \"auths\""
 							}
 						  ]
 						},
@@ -297,9 +300,10 @@
 				"elements": [
 					{
 						"name": "ibmEntitlementKey",
-						"type": "Microsoft.Common.PasswordBox",						
+						"type": "Microsoft.Common.PasswordBox",	
+						"toolTip": "API Key for IBM registry entitlement to image",					
 						"label": {
-							"password": "IBM Entitlement Key"
+							"password": "API Key"
 						},
 						"constraints": {
 							"required": true,
@@ -307,7 +311,7 @@
 							"validationMessage": "Key must be at least 100 characters long, contain only numbers, letters, underscores, dots and dashes"
                 		},
 						"options": {
-							"hideConfirmation": true
+							"hideConfirmation": false
 						},
 						"visible": true
 					},
@@ -315,6 +319,7 @@
 						"name": "acceptLicense",
 						"type": "Microsoft.Common.OptionsGroup",
 						"label": "Sterling License Agreement",
+						"toolTip": "Acceptance of license terms is required to instantiate instance",
 						"defaultValue": "Decline",
 						"constraints": {
 							"required": true,
@@ -337,7 +342,6 @@
 						"label": "Namespace for Sterling OMS",
 						"defaultValue": "oms",
 						"toolTip": "Namespace for Sterling OMS",
-						"placeholder": "",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
@@ -355,8 +359,7 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Sterling OMS Image to Install",
 						"defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
-						"toolTip": "",
-						"placeholder": "",
+						"toolTip": "The OMS image to deploy",
 						"multiLine": false,
 						"constraints": {
 						  "required": true,
@@ -380,7 +383,12 @@
 						"type": "Microsoft.Common.TextBox",
 						"label": "Admin Username",
 						"defaultValue": "azureuser",
-						"toolTip": "Administrator username for deployed VMs"
+						"toolTip": "Administrator username for deployed VMs",
+						"constraints": {
+							"required": true,
+							"regex": "^[A-Za-z0-9]{5,}$",
+							"validationMessage": "Must be only alphanumeric and 5 or more characters long"
+						}
 					},
 					{
 						"name": "adminPassword",
@@ -436,14 +444,19 @@
 			"location": "[location()]",
 			"ibmEntitlementKey": "[steps('sterling').ibmEntitlementKey]",
 			"acceptLicense": "[steps('sterling').acceptLicense]",
-			"vnetName": "[[steps('networking').vnet.name]]",
-			"vnetCIDR": "[[first( steps('networking').vnet.addressPrefixes ) ]]",
-			"controlSubnetCIDR": "[[steps('networking').vnet.subnets.controlSubnet.addressPrefix]]",
-			"workerSubnetCIDR": "[[steps('networking').vnet.subnets.workerSubnet.addressPrefix]]",
+			"vnetName": "[steps('networking').vnet.name]",
+			"vnetCIDR": "[first( steps('networking').vnet.addressPrefixes ) ]",
+			"controlSubnetCIDR": "[steps('networking').vnet.subnets.controlSubnet.addressPrefix]",
+			"controlSubnetName": "[steps('networking').vnet.subnets.controlSubnet.name]",
+			"workerSubnetCIDR": "[steps('networking').vnet.subnets.workerSubnet.addressPrefix]",
+			"workerSubnetName": "[steps('networking').vnet.subnets.workerSubnet.name]",
 			"bastionSubnetCIDR": "[steps('networking').vnet.subnets.bastionSubnet.addressPrefix]",
 			"devSubnetCIDR": "[steps('networking').vnet.subnets.devSubnet.addressPrefix]",
+			"devSubnetName": "[steps('networking').vnet.subnets.devSubnet.name]",
 			"databaseSubnetCIDR": "[steps('networking').vnet.subnets.dataSubnet.addressPrefix]",
+			"databaseSubnetName": "[steps('networking').vnet.subnets.dataSubnet.name]",
 			"endpointSubnetCIDR": "[steps('networking').vnet.subnets.endpointSubnet.addressPrefix]",
+			"endpointSubnetName": "[steps('networking').vnet.subnets.endpointSubnet.name]",
 			"adminUserName": "[steps('auth').adminUserName]",
 			"adminPassword": "[steps('auth').adminPassword]",
 			"spClientId": "[steps('auth').servicePrincipal.appId]",
@@ -451,6 +464,7 @@
 			"spClientSecret": "[steps('auth').servicePrincipal.password]",
 			"rpObjectId": "[steps('openshift').rpObjectId]",
 			"pullSecret": "[steps('openshift').pullSecret]",
+			"masterSize": "[steps('openshift').masterNodes]",
 			"workerSize": "[steps('openshift').workerNodes]",
 			"workerCount": "[steps('openshift').workerCount]",
 			"omsNamespace": "[steps('sterling').omsNamespace]",

@@ -167,6 +167,13 @@
                 "description": "CIDR for the development subnet"
             }
         },
+        "devSubnetName": {
+            "type": "string",
+            "defaultValue": "dev-subnet",
+            "metadata": {
+                "description": "Name for the development subnet"
+            }
+        },
         "adminUserName": {
             "type": "string",
             "defaultValue": "azureuser",
@@ -208,6 +215,13 @@
             "type": "securestring",
             "metadata": {
                 "description": "Red Hat OpenShift Pull Secret"
+            }
+        },
+        "masterSize": {
+            "type": "string",
+            "defaultValue": "Standard_D8s_v3",
+            "metadata": {
+                "description": "VM size for master nodes"
             }
         },
         "workerSize": {
@@ -510,6 +524,9 @@
                     "subnetCIDR": {
                         "value": "[parameters('devSubnetCIDR')]"
                     },
+                    "subnetName": {
+                        "value": "[parameters('devSubnetName')]"
+                    },
                     "vnetName": {
                         "value": "[parameters('vnetName')]"
                     },
@@ -573,6 +590,9 @@
                     },
                     "pullSecret": {
                         "value": "[parameters('pullSecret')]"
+                    },
+                    "masterSize": {
+                        "value": "[parameters('masterSize')]"
                     },
                     "workerSize": {
                         "value": "[parameters('workerSize')]"
