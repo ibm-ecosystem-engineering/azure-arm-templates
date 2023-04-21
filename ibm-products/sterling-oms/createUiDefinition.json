@@ -400,8 +400,8 @@
 						"toolTip": "Password to be used for deployed VMs and database.",
 						"constraints": {
 							"required": true,
-							"regex": "^[A-Za-z0-9@$&^%*()!#~.-]{8,}$",
-							"validationMessage": "Password must be at least 8 characters long, contain only numbers, letters and special characters"
+							"regex": "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{12,}$",
+							"validationMessage": "The password must be alphanumeric, contain at least 12 characters, and have at least 1 letter and 1 number."
 						},
 						"options": {
 							"hideConfirmation": false
