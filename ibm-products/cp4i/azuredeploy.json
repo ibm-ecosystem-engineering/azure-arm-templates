@@ -78,7 +78,6 @@
         },
         "aroClusterName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-aro')]",
             "metadata": {
                 "description": "Name of the ARO cluster"
             }
