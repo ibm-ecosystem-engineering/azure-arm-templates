@@ -122,15 +122,20 @@ function cli-download() {
     log-output "INFO: Downloading and installing oc and kubectl"
     curl -sLo $TMP_DIR/openshift-client.tgz $OC_URL
 
-    if ! tar tzf $TMP_DIR/openshift-client.tgz 1> /dev/null 2> /dev/null; then
-        log-output "ERROR: Tar file from $OC_URL is corrupted"
-        exit 1
+    if ! error=$(tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl 2>&1) ; then
+        log-output "ERROR: Unable to extract oc or kubectl from tar file"
+        log-output "$error"
     fi
 
-    tar xzf ${TMP_DIR}/openshift-client.tgz -C ${TMP_DIR} oc kubectl
+    if ! error=$(mv ${TMP_DIR}/oc ${BIN_DIR}/oc 2>&1) ; then
+        log-output "ERROR: Unable to move oc to $BIN_DIR"
+        log-output "$error"
+    fi
 
-    mv ${TMP_DIR}/oc ${BIN_DIR}/oc
-    mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl
+    if ! error=$(mv ${TMP_DIR}/kubectl ${BIN_DIR}/kubectl 2>&1) ; then
+        log-output "ERROR: Unable to move kubectl to $BIN_DIR"
+        log-output "$error"
+    fi
 }
 
 function reset-output() {
@@ -173,6 +178,7 @@ function wait_for_subscription() {
         TIMEOUT=${3}
     fi
 
+    export RETRY_COUNT=10
     export TIMEOUT_COUNT=$(( $TIMEOUT * 60 / 30 ))
 
     count=0;
@@ -180,7 +186,11 @@ function wait_for_subscription() {
         log-output "INFO: Waiting for subscription $SUBSCRIPTION to be ready. Waited $(( $count * 30 )) seconds. Will wait up to $(( $TIMEOUT_COUNT * 30 )) seconds."
         sleep 30
         count=$(( $count + 1 ))
-        if (( $count > $TIMEOUT_COUNT )); then
+        if (( $count > $RETRY_COUNT )); then
+            log-output "INFO: Killing csv to allow recreation"
+            CSV=$(${BIN_DIR}/oc get subscription -n ${SUB_NAMESPACE} ${SUBSCRIPTION} -o json | jq -r '.status.currentCSV')
+            ${BIN_DIR}/oc delete csv -n ${SUB_NAMESPACE} ${CSV} 2>&1 /dev/null
+        elif (( $count > $TIMEOUT_COUNT )); then
             log-output "ERROR: Timeout exceeded waiting for subscription $SUBSCRIPTION to be ready"
             exit 1
         fi
