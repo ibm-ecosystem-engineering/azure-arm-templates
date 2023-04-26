@@ -483,7 +483,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'networking/bastion/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -511,7 +511,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'compute/dev-vm/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/compute/dev-vm/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -555,7 +555,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'openshift/aro/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/openshift/aro/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -637,7 +637,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'storage/private-fileshare/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/storage/private-fileshare/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -683,7 +683,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'storage/private-cr/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/storage/private-cr/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -729,7 +729,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'database/postgresql/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/database/postgresql/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"                    
                 },
                 "parameters": {
@@ -781,7 +781,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'ibm-products/sterling-oms/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/sterling-oms/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"   
                 },
                 "parameters": {
