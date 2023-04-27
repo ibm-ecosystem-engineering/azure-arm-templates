@@ -18,7 +18,7 @@ if [[ -z $STORAGE_ACCOUNT_NAME ]]; then ENV_VAR_NOT_SET="STORAGE_ACCOUNT_NAME"; 
 if [[ -z $FILE_TYPE ]]; then ENV_VAR_NOT_SET="FILE_TYPE"; fi
 if [[ -z $SC_NAME ]]; then ENV_VAR_NOT_SET="SC_NAME"; fi
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then ENV_VAR_NOT_SET="IBM_ENTITLEMENT_KEY"; fi
-if [[ $LICENSE == "accept" ]] && [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
+if [[ -z $PSQL_HOST ]]; then ENV_VAR_NOT_SET="PSQL_HOST"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
     log-output "ERROR: Mandatory environment variable $ENV_VAR_NOT_SET not set. Please set and retry."
@@ -65,6 +65,10 @@ log-output "INFO: LICENSE state is $LICENSE"
 # Create working directories
 mkdir -p ${WORKSPACE_DIR}
 mkdir -p ${TMP_DIR}
+
+######
+# Clean up any old temp files
+rm -r ${WORKSPACE_DIR}/*.yaml
 
 #####
 # Download OC and kubectl
@@ -371,6 +375,8 @@ else
   log-output "INFO: Operator group oms-operator-global already exists"
 fi
 
+# Create subscription for operator
+
 if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
     log-output "INFO: Installing OMS Operator"
     log-output "INFO: Name        : $OPERATOR_NAME"
@@ -398,39 +404,9 @@ else
     log-output "INFO: IBM OMS Operator already installed"
 fi
 
+# Wait for operator to be ready
 wait_for_subscription ${OMS_NAMESPACE} oms-operator
 log-output "INFO: OMS Operator subscription ready" 
-
-
-#######
-# Create OMS Persistent Volume
-if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
-    log-output "INFO: Creating PVC for OMS"
-cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: oms-pvc
-  namespace: $OMS_NAMESPACE             
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 100Gi
-  storageClassName: $SC_NAME
-  volumeMode: Filesystem
-EOF
-
-    if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml 2>&1 ) ; then
-        log-output "INFO: Successfully created OMS PVC" 
-    else
-        log-output "FAILED: Unable to create OMS PVC"
-        log-output "$error"
-    fi
-else
-    log-output "INFO: PVC for OMS already exists"
-fi
 
 # Check operator status
 if [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ibm-oms-controller-manager | awk '{print $2}') != '3/3' ]]; then
@@ -495,9 +471,38 @@ log-output "INFO: PSQL POD $PSQL_POD_NAME successfully started"
 #######
 # Create OMEnvironment
 if [[ $LICENSE == "accept" ]]; then
-  if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
 
-    # Confirm db server exists
+    # Create OMS Shared Persistent Volume
+    if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
+      log-output "INFO: Creating PVC for OMS"
+      cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: oms-pvc
+  namespace: $OMS_NAMESPACE             
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: $SC_NAME
+  volumeMode: Filesystem
+EOF
+
+      if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/oms-pvc.yaml 2>&1 ) ; then
+          log-output "INFO: Successfully created OMS PVC" 
+      else
+          log-output "FAILED: Unable to create OMS PVC"
+          log-output "$error"
+      fi
+    else
+        log-output "INFO: PVC for OMS already exists"
+    fi
+    if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
+
+    # Confirm db server exists, then create DB & Schema in DB
     PSQL_NAME=$(echo ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
     if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
         log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
@@ -531,7 +536,7 @@ if [[ $LICENSE == "accept" ]]; then
         fi
     fi
 
-
+    # Create OMEnvironment instance
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     if [[ -f ${WORKSPACE_DIR}/omenvironment.yaml ]]; then
