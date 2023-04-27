@@ -285,3 +285,11 @@ function get_region() {
 
     echo $REGION
 }
+
+function cleanup_file() {
+    FILE=${1}
+
+    if [[ -f $FILE ]]; then
+        rm $FILE
+    fi
+}

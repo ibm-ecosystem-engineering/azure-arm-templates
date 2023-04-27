@@ -66,10 +66,6 @@ log-output "INFO: LICENSE state is $LICENSE"
 mkdir -p ${WORKSPACE_DIR}
 mkdir -p ${TMP_DIR}
 
-######
-# Clean up any old temp files
-rm -r ${WORKSPACE_DIR}/*.yaml
-
 #####
 # Download OC and kubectl
 ARCH=$(uname -m)
@@ -164,6 +160,7 @@ fi
 # Create storage class
 if [[ -z $(${BIN_DIR}/oc get sc | grep $SC_NAME) ]]; then
     log-output "INFO: Creating Azure file storage"
+    cleanup_file ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
     cat << EOF >> ${WORKSPACE_DIR}/azure-storageclass-azure-file.yaml
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -209,9 +206,37 @@ export TLSSTOREPW="$ADMIN_PASSWORD"
 export TRUSTSTOREPW="$ADMIN_PASSWORD"
 export KEYSTOREPW="$ADMIN_PASSWORD"
 
+# Create role 
+if [[ -z $(${BIN_DIR}/oc get roles -n $OMS_NAMESPACE | grep oms-role) ]]; then
+    log-output "INFO: Creating OMS Role"
+    cleanup_file ${WORKSPACE_DIR}/oms-role.yaml
+    cat << EOF >> ${WORKSPACE_DIR}/oms-role.yaml
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: oms-role
+  namespace: $OMS_NAMESPACE
+rules:
+  - apiGroups: ['']
+    resources: ['secrets']
+    verbs: ['get', 'watch', 'list', 'create', 'delete', 'patch', 'update']
+EOF
+
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-role.yaml 2>&1); then
+        log-output "INFO: Successfully created role for OMS"
+    else
+        log-output "FAILED: Unable to create either the role or the role binding"
+        log-output "$error"
+    fi
+else
+    log-output "INFO: OMS RBAC already exists"
+fi
+
+# Create role bindings
 if [[ -z $(${BIN_DIR}/oc get rolebindings -n $OMS_NAMESPACE | grep oms-rolebinding) ]]; then
     log-output "INFO: Creating OMS RBAC"
-cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
+    cleanup_file ${WORKSPACE_DIR}/oms-rbac.yaml
+    cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -248,8 +273,11 @@ else
     log-output "INFO: OMS RBAC already exists"
 fi
 
+# Create OMS secret with default passwords
 if [[ -z $(${BIN_DIR}/oc get secrets -n $OMS_NAMESPACE | grep oms-secret) ]]; then
-cat << EOF >> ${WORKSPACE_DIR}/oms-secret.yaml
+    log-output "INFO: Creating OMS Secret"
+    cleanup_file ${WORKSPACE_DIR}/oms-secret.yaml
+    cat << EOF >> ${WORKSPACE_DIR}/oms-secret.yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -279,7 +307,8 @@ if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg
     log-output "INFO: Creating Azure container registry login Secret"
     export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
     export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
-cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
+    cleanup_file ${WORKSPACE_DIR}/oms-pullsecret.json
+    cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
 {"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
     if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
@@ -321,8 +350,9 @@ else
 fi
 
 # Create catalog source
-if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-sterling-oms) ]];; then
+if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-sterling-oms) ]]; then
   log-output "INFO: Creating catalog source ibm-sterling-oms"
+  cleanup_file ${WORKSPACE_DIR}/sterling-catalog.yaml
   cat << EOF >> ${WORKSPACE_DIR}/sterling-catalog.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -357,6 +387,7 @@ log-output "INFO: Catalog ibm-sterling-oms ready"
 
 if [[ -z $() ]]; then
   log-output "INFO: Creating operator group oms-operator-global"
+  cleanup_file ${WORKSPACE_DIR}/operator-group.yaml
   cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -381,7 +412,8 @@ if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; the
     log-output "INFO: Installing OMS Operator"
     log-output "INFO: Name        : $OPERATOR_NAME"
     log-output "INFO: Operator CSV: $OPERATOR_CSV"
-cat << EOF >> ${WORKSPACE_DIR}/oms-operator.yaml
+    cleanup_file ${WORKSPACE_DIR}/oms-operator.yaml
+    cat << EOF >> ${WORKSPACE_DIR}/oms-operator.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -420,6 +452,7 @@ fi
 # Create psql pod to manage DB (this will be used to create db and schema)
 if [[ -z $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME}) ]]; then
     log-output "INFO: Creating new psql client pod ${PSQL_POD_NAME}"
+    cleanup_file ${WORKSPACE_DIR}/psql-pod.yaml
     cat << EOF >> ${WORKSPACE_DIR}/psql-pod.yaml
 apiVersion: v1
 kind: Pod
@@ -475,6 +508,7 @@ if [[ $LICENSE == "accept" ]]; then
     # Create OMS Shared Persistent Volume
     if [[ -z $(${BIN_DIR}/oc get pvc -n $OMS_NAMESPACE | grep oms-pv) ]]; then
       log-output "INFO: Creating PVC for OMS"
+      cleanup_file ${WORKSPACE_DIR}/oms-pvc.yaml
       cat << EOF >> ${WORKSPACE_DIR}/oms-pvc.yaml
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -539,9 +573,7 @@ EOF
     # Create OMEnvironment instance
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
-    if [[ -f ${WORKSPACE_DIR}/omenvironment.yaml ]]; then
-        rm ${WORKSPACE_DIR}/omenvironment.yaml
-    fi
+    cleanup_file ${WORKSPACE_DIR}/omenvironment.yaml
     cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
 apiVersion: apps.oms.ibm.com/v1beta1
 kind: OMEnvironment
@@ -671,7 +703,8 @@ spec:
 EOF
     if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml 2>&1) ; then
         log-output "INFO: Successfully installed OMEnvironment instance"
-        log-output "INFO: Please check console for status"
+        # Sleep 30 seconds to let navigator get created before checking status
+        sleep 30
     else
         log-output "FAILED: Unable to create OMEnvironment"
         log-output "$error"
@@ -679,12 +712,22 @@ EOF
   else
     log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
   fi
+
+  # Wait for isntance to be created
+  count=0
+  while [[ $(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[] | select(.type=="OMEnvironmentAvailable").status') != "True" ]]; do
+      current_status=$(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[].reason')
+      log-output "INFO: Waiting for OMEnvironment instance to be ready. Status = $current_status"
+      log-output "Info: Waited $count minutes. Will wait up to 90 minutes. "
+      sleep 60
+      count=$(( $count + 1 ))
+      if (( $count > 90)); then    # Timeout set to 90 minutes
+          log-output "ERROR: Timout waiting for ${OM_INSTANCE_NAME} to be ready"
+          exit 1
+      fi
+  done
 else
     log-output "INFO: License not accepted. Manually create instance"
 fi
-
-#### Wait for pods to start
-
-
 
 #### Patch OMEnvironment to change data management to upgrade from create
