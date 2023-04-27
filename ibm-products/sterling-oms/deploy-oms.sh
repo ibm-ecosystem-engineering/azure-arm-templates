@@ -41,6 +41,18 @@ if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
 
+# Default secrets
+if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
+if [[ -z $CONSOLENONADMINPW ]]; then export CONSOLENONADMINPW="$ADMIN_PASSWORD"; fi
+if [[ -z $DBPASSWORD ]]; then export DBPASSWORD="$ADMIN_PASSWORD"; fi
+if [[ -z $TLSSTOREPW ]]; then export TLSSTOREPW="$ADMIN_PASSWORD"; fi
+if [[ -z $TRUSTSTOREPW ]]; then export TRUSTSTOREPW="$ADMIN_PASSWORD"; fi
+if [[ -z $KEYSTOREPW ]]; then export KEYSTOREPW="$ADMIN_PASSWORD"; fi
+if [[ -z $CASSANDRA_USERNAME ]]; then export CASSANDRA_USERNAME="admin"; fi
+if [[ -z $CASSANDRA_PASSWORD ]]; then export CASSANDRA_PASSWORD="$ADMIN_PASSWORD"; fi
+if [[ -z $ES_USERNAME ]]; then export ES_USERNAME="admin"; fi
+if [[ -z $ES_PASSWORD ]]; then export ES_PASSWORD="$ADMIN_PASSWORD"; fi
+
 log-output "INFO: ARO Cluster is $ARO_CLUSTER"
 log-output "INFO: RESOURCE_GRUP is $RESOURCE_GROUP"
 log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
@@ -199,12 +211,6 @@ fi
 
 ######
 # Install and configure IBM Operator catalog
-export CONSOLEADMINPW="$ADMIN_PASSWORD"
-export CONSOLENONADMINPW="$ADMIN_PASSWORD"
-export DBPASSWORD="$ADMIN_PASSWORD"
-export TLSSTOREPW="$ADMIN_PASSWORD"
-export TRUSTSTOREPW="$ADMIN_PASSWORD"
-export KEYSTOREPW="$ADMIN_PASSWORD"
 
 # Create role 
 if [[ -z $(${BIN_DIR}/oc get roles -n $OMS_NAMESPACE | grep oms-role) ]]; then
@@ -237,17 +243,6 @@ if [[ -z $(${BIN_DIR}/oc get rolebindings -n $OMS_NAMESPACE | grep oms-rolebindi
     log-output "INFO: Creating OMS RBAC"
     cleanup_file ${WORKSPACE_DIR}/oms-rbac.yaml
     cat << EOF >> ${WORKSPACE_DIR}/oms-rbac.yaml
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: oms-role
-  namespace: $OMS_NAMESPACE
-rules:
-  - apiGroups: ['']
-    resources: ['secrets']
-    verbs: ['get', 'watch', 'list', 'create', 'delete', 'patch', 'update']
-
----
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -291,6 +286,10 @@ stringData:
   tlskeystorepassword: $TLSSTOREPW
   trustStorePassword: $TRUSTSTOREPW
   keyStorePassword: $KEYSTOREPW
+  cassandra_username: $CASSANDRA_USERNAME
+  cassandra_password: $CASSANDRA_PASSWORD
+  es_username: $ES_USERNAME
+  es_password: $ES_PASSWORD
 EOF
     if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-secret.yaml 2>&1) ; then
         log-output "INFO: Successfully created OMS secret"
@@ -618,6 +617,30 @@ spec:
     extn:
       profile: ProfileSmall
       replicaCount: 1
+  orderService:
+    cassandra:
+      createDevInstance:
+        profile: ProfileColossal
+        storage:
+          accessMode: ReadWriteMany
+          capacity: 20Gi
+          name: oms-pvc-ordserv
+          storageClassName: ${SC_NAME}
+      keyspace: cassandra_keyspace
+    configuration:
+      additionalConfig:
+        enable_graphql_introspection: 'true'
+        log_level: DEBUG
+        order_archive_additional_part_name: ordRel
+        service_auth_disable: 'true'
+        ssl_vertx_disable: 'false'
+      jwt_ignore_expiration: false
+    elasticsearch:
+      createDevInstance:
+        profile: ProfileLarge
+    orderServiceVersion: 10.0.2303.0
+    profile: ProfileLarge
+    replicaCount: 1
   image:
     oms:
       tag: 10.0.2209.1-amd64
@@ -629,6 +652,10 @@ spec:
       extn:
         tag: 10.0.2209.1-amd64
         repository: cp.icr.io/cp/ibm-oms-professional
+    orderService:
+      imageName: orderservice
+      repository: cp.icr.io/cp/ibm-oms-professional
+      tag: 10.0.2209.1-amd64
     imagePullSecrets:
       - name: ibm-entitlement-key
   networkPolicy:
