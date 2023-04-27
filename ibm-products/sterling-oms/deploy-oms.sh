@@ -316,18 +316,10 @@ else
     export OPERATOR_CSV="ibm-oms-ent.v1.0"
 fi
 
-if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
-    log-output "INFO: Installing OMS Operator"
-    log-output "INFO: Name        : $OPERATOR_NAME"
-    log-output "INFO: Operator CSV: $OPERATOR_CSV"
-cat << EOF >> ${WORKSPACE_DIR}/install-oms-operator.yaml
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: oms-operator-global
-  namespace: $OMS_NAMESPACE
-spec: {}
----
+# Create catalog source
+if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-sterling-oms) ]];; then
+  log-output "INFO: Creating catalog source ibm-sterling-oms"
+  cat << EOF >> ${WORKSPACE_DIR}/sterling-catalog.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
@@ -341,7 +333,49 @@ spec:
   updateStrategy:
     registryPoll:
       interval: 10m0s
----
+EOF
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/sterling-catalog.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed catalog source ibm-sterling-oms"
+    else
+        log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
+        log-output "$error"
+    fi
+
+else
+  log-output "INFO: Catalog source ibm-sterling-oms already exists"
+fi
+
+# Wait for catalog source to be ready
+wait_for_catalog ibm-sterling-oms 15
+log-output "INFO: Catalog ibm-sterling-oms ready"
+
+# Create operator group
+
+if [[ -z $() ]]; then
+  log-output "INFO: Creating operator group oms-operator-global"
+  cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: oms-operator-global
+  namespace: $OMS_NAMESPACE
+spec: {}
+EOF
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/operator-group.yaml 2>&1) ; then
+        log-output "INFO: Successfully installed catalog source ibm-sterling-oms"
+    else
+        log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
+        log-output "$error"
+    fi
+else
+  log-output "INFO: Operator group oms-operator-global already exists"
+fi
+
+if [[ -z $(${BIN_DIR}/oc get operators -n $OMS_NAMESPACE | grep ibm-oms) ]]; then
+    log-output "INFO: Installing OMS Operator"
+    log-output "INFO: Name        : $OPERATOR_NAME"
+    log-output "INFO: Operator CSV: $OPERATOR_CSV"
+cat << EOF >> ${WORKSPACE_DIR}/oms-operator.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -354,7 +388,7 @@ spec:
   source: ibm-sterling-oms
   sourceNamespace: openshift-marketplace
 EOF
-    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/install-oms-operator.yaml 2>&1) ; then
+    if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/oms-operator.yaml 2>&1) ; then
         log-output "INFO: Successfully installed OMS operator"
     else
         log-output "FAILED: Unable to install OMS operator"
@@ -464,7 +498,7 @@ if [[ $LICENSE == "accept" ]]; then
   if [[ -z $(${BIN_DIR}/oc get omenvironment.apps.oms.ibm.com -n ${OMS_NAMESPACE} | grep ${OM_INSTANCE_NAME}) ]]; then
 
     # Confirm db server exists
-    PSQL_NAME=$(log-output ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
+    PSQL_NAME=$(echo ${PSQL_HOST} | sed 's/.postgres.database.azure.com//g')
     if [[ -z $(${BIN_DIR}/az postgres flexible-server list -o table | grep ${PSQL_NAME}) ]]; then
         log-output "ERROR: PostgreSQL server ${PSQL_NAME} not found"
         exit 1
