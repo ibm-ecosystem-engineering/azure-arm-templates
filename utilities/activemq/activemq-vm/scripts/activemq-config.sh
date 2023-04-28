@@ -21,7 +21,7 @@ fi
 export ACTIVEMQ_HOME="/opt/activemq"
 export PASSWORD=$1
 export TMP_DIR="/tmp"
-export BRANCH="initial-version"
+export BRANCH="main"
 
 # Delay start if a new build to let cloud-init scripts finish
 if [[ -z $3 ]]; then NEW_VM=false; else NEW_VM=$3; fi
