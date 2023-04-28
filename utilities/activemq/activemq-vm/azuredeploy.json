@@ -35,6 +35,13 @@
                 "description": "Flag to indicate whether a new virtual network should be created (true), or use an existing one (false)."
             }
         },
+        "virtualNetworkResourceGroupName": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().name]",
+            "metadata": {
+                "description": "Name of the resource group for the existing virtual network"
+            }
+        },
         "vnetCIDR": {
             "type": "string",
             "defaultValue": "10.0.0.0/20",
@@ -272,7 +279,7 @@
         },
         "vnetId": {
             "new": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
-            "existing": "[resourceId(parameters('vnetName'),'Microsoft.Network/virtualNetworks',parameters('vnetName'))]"
+            "existing": "[resourceId(parameters('virtualNetworkResourceGroupName'),'Microsoft.Network/virtualNetworks',parameters('vnetName'))]"
         },
         "subnetId": "[concat(variables('vnetId')[parameters('virtualNetworkNewOrExisting')],'/subnets/',parameters('subnetName'))]"
     },
