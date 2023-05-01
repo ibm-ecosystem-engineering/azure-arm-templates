@@ -19,7 +19,7 @@
         },
         "vnetName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-vnet')]",
+            "defaultValue": "vnet",
             "metadata": {
                 "description": "Virtual network name"
             }
@@ -51,7 +51,7 @@
         },
         "subnetName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-vm-subnet')]",
+            "defaultValue": "default",
             "metadata": {
                 "description": "Subnet name to attach to VM"
             }
@@ -210,7 +210,7 @@
         },
         "publicIPName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('namePrefix'),'-ip')]",
+            "defaultValue": "[concat(parameters('namePrefix'),'-pip')]",
             "metadata": {
                 "description": "Name for the public IP address if creating."
             }
@@ -480,6 +480,15 @@
             "condition": "[parameters('createPublicIP')]",
             "type": "string",
             "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').dnsSettings.fqdn]"
+        },
+        "activeMQConsole-public": {
+            "condition": "[parameters('createPublicIP')]",
+            "type": "string",
+            "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').dnsSettings.fqdn,':8161/admin')]"
+        },
+        "activeMQConsole": {
+            "type": "string",
+            "value": "[concat('http://',reference(resourceId('Microsoft.Network/networkInterfaces', variables('nicName')), '2022-07-01').ipConfigurations[0].properties.privateIPAddress,':8161/admin')]"
         }
     }
 }
