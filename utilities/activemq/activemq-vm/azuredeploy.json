@@ -467,9 +467,19 @@
             "type": "string",
             "value": "[variables('vmName')]"
         },
-        "vmNIC": {
-            "type": "object",
-            "value": "[reference(resourceId('Microsoft.Network/networkInterfaces',variables('nicName')))]"
+        "internalIP": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', variables('nicName')), '2022-07-01').ipConfigurations[0].properties.privateIPAddress]"
+        },
+        "publicIP": {
+            "condition": "[parameters('createPublicIP')]",
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').ipAddress]"
+        },
+        "fqdn": {
+            "condition": "[parameters('createPublicIP')]",
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').dnsSettings.fqdn]"
         }
     }
 }
