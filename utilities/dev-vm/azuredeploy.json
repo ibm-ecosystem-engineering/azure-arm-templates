@@ -51,7 +51,7 @@
         },
         "subnetName": {
             "type": "string",
-            "defaultValue": "default",
+            "defaultValue": "vm-subnet",
             "metadata": {
                 "description": "Subnet name to attach to VM"
             }
@@ -89,19 +89,13 @@
         },
         "securityType": {
             "type": "string",
-            "defaultValue": "Standard",
+            "defaultValue": "TrustedLaunch",
             "allowedValues": [
                 "Standard",
                 "TrustedLaunch"
             ],
             "metadata": {
                 "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
-            }
-        },
-        "mqPassword": {
-            "type": "securestring",
-            "metadata": {
-                "description": "Password for ActiveMQ administrator"
             }
         },
         "vmNsgSecurityRules": {
@@ -173,32 +167,10 @@
             "allowedValues": [
                 "Ubuntu 18.04 LTS",
                 "Ubuntu 20.04 LTS",
-                "Ubuntu 22.04 LTS",
-                "RHEL 8.6"
+                "Ubuntu 22.04 LTS"
             ],
             "metadata": {
                 "description": "Operating system version"
-            }
-        },
-        "branch": {
-            "type": "string",
-            "defaultValue": "main",
-            "metadata": {
-                "description": "GitHub branch for script URI"
-            }
-        },
-        "scriptURI": {
-            "type": "string",
-            "defaultValue": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/utilities/activemq/activemq-vm/scripts/')]",
-            "metadata": {
-                "description": "URI for the scripts to run post virtual machine creation"
-            }
-        },
-        "activemqVersion": {
-            "type": "string",
-            "defaultValue": "5.16.3",
-            "metadata": {
-                "description": "ActiveMQ version to be installed."
             }
         },
         "createPublicIP": {
@@ -259,14 +231,9 @@
                 "offer": "0001-com-ubuntu-server-jammy",
                 "sku": "22_04-lts-gen2",
                 "version": "latest"
-            },
-            "RHEL 8.6": {
-                "publisher": "RedHat",
-                "offer": "RHEL",
-                "sku": "8_6",
-                "version": "latest"
             }
         },
+        "vmBootstrap": "[concat('#cloud-config\n runcmd:\n - echo adminuser=',parameters('adminUserName'),' >> /tmp/script-parameters.txt\n')]",
         "securityProfile": {
             "uefiSettings": {
                 "secureBootEnabled": true,
@@ -401,6 +368,7 @@
                     "computerName": "[variables('vmName')]",
                     "adminUsername": "[parameters('adminUserName')]",
                     "adminPassword": "[parameters('adminPassword')]",
+                    "customData": "[base64(variables('vmBootstrap'))]",
                     "linuxConfiguration": "[if(equals(parameters('authType'), 'sshPublicKey'), variables('linuxConfigSSH'), variables('linuxConfigPWD'))]"
                 },
                 "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'),variables('securityProfile'),json('null'))]",
@@ -422,7 +390,7 @@
             "apiVersion": "2022-03-01",
             "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'Canonical'), bool('true'), bool('false'))]",
             "location": "[parameters('location')]",
-            "name": "[concat(variables('vmName'),'/','installActiveMQ-ubuntu')]",
+            "name": "[concat(variables('vmName'),'/','setup-script')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
             ],
@@ -432,32 +400,7 @@
                 "typeHandlerVersion": "2.0",
                 "autoUpgradeMinorVersion": true,
                 "protectedSettings": {
-                    "fileUris": [
-                        "[concat(parameters('scriptURI'),'activemq-config.sh')]"
-                    ],
-                    "commandToExecute": "[concat('/bin/bash activemq-config.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
-                }
-            }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines/extensions",
-            "apiVersion": "2022-03-01",
-            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false'))]",
-            "location": "[parameters('location')]",
-            "name": "[concat(variables('vmName'),'/','installActiveMQ-rhel')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
-            ],
-            "properties": {
-                "publisher": "Microsoft.Azure.Extensions",
-                "type": "CustomScript",
-                "typeHandlerVersion": "2.0",
-                "autoUpgradeMinorVersion": true,
-                "protectedSettings": {
-                    "fileUris": [
-                        "[concat(parameters('scriptURI'),'activemq-rhel.sh')]"
-                    ],
-                    "commandToExecute": "[concat('/bin/bash activemq-rhel.sh ',parameters('mqPassword'),' ',parameters('activemqVersion'),' true')]"
+                    "script": "H4sIAGsoT2QCA5VV72/TMBD9nr/iKJO2CjneD8EHpiJNgKZJg0ljiA9jQq59acwS29jOuk788VycNGnRGNAviZ99785376XPn/G5NnwuQpllz+GL0BEK60FWtlFMG1pGCwW90AFpGxNn+9my1BXC9TXs7LkA942An7Dw6DajeoTdpecUbm6OQdkM6IeytDBpU2mzGLPBdrY8FYMKdlJaqLVpIgaCdVXBsi304GWLxobQSWIOFVLOV/tp0VW7s7e3ZngBBzCdpj1dwIi/aYmm02OIJZq0PVb5/vLy4vI1XOkabRNT2q2if2vRZAy/bws8TutCZ8oabBv82SkREWohS01IaJQF4SI0CR/XSofIGrfwQiGwVRt6ZkIUdPXvP8ZjusfYqoXp0Cm2oKNSnfCixog+ZCfvPpx9/Pzp/SV1Q4oIPNaOB+m1i2w8lsf7YWxCte0O6AmQRMYU7M52gRWH081SlJW36Idy2AK3SpKCSfRRF5qyYiAmX8HC0LWgCnPmsUIRMEswK8KncyhjdOE158ouTWWFyrsMubQ1r6iie97MaWQNXxDHT0iJ21fGFApf01SYBd4Ez0MpPPJbXHmaV+AdDxOe+n6HrMdzis26QSucw3W7TT1S7raldHQkdiERZWw8TiHohUHF5qvZ/2W5+eerkamoOd/65gCTgbJGMa9wsr5xRASOUXLqOQ+28ZIcUJFictWXkFYkbK7wjpumqrZn9JvaEkbz0ltjpdmNb0xWmhxloiDZepVr20W3GqmtAiZO+8OwM8htUyrigQyj+1mHcdLiVuR14P2xkwfq8tvzs3c0jf6y60/TmujEBE3N+LN1NgToVrG05mj9ZE677tx6g9VA2BAiOm4mrcfZ7DA/OMyPngxgg0f70M1Kr9B7QV+K+u/N36i580ewRVyStkiE1rUewkBV1bU12TJN64KNLXQx7+US8pLapal+l4TV2eRr+gpt+2SNjoJ6RM8D2aPG6QiNJc5CNFVcb/bMbFj/N/XAQF/VBfpkxE2fPu3CJ6lveu6/N+8xI9Yk/8kjvfuDGUe+Fsj+SbNxUM24TfDmH8IvLaBVfrUHAAA="
                 }
             }
         }
@@ -480,15 +423,6 @@
             "condition": "[parameters('createPublicIP')]",
             "type": "string",
             "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').dnsSettings.fqdn]"
-        },
-        "activeMQConsole-public": {
-            "condition": "[parameters('createPublicIP')]",
-            "type": "string",
-            "value": "[concat('http://',reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName')), '2022-07-01').dnsSettings.fqdn,':8161/admin')]"
-        },
-        "activeMQConsole": {
-            "type": "string",
-            "value": "[concat('http://',reference(resourceId('Microsoft.Network/networkInterfaces', variables('nicName')), '2022-07-01').ipConfigurations[0].properties.privateIPAddress,':8161/admin')]"
         }
     }
 }

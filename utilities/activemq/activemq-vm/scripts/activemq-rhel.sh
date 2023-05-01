@@ -28,11 +28,17 @@ export ACTIVEMQ_HOME="/opt/activemq"
 export PASSWORD=$1
 export TMP_DIR="/tmp"
 
-# Delay start if a new build to let cloud-init scripts finish
-if [[ -z $3 ]]; then NEW_VM=false; else NEW_VM=$3; fi
-if [[ $NEW_VM == true ]]; then
-    sleep 120
-fi
+# Wait for cloud-init to finish
+count=0
+while [[ $(ps xua | grep cloud-init | grep -v grep) ]]; do
+    echo "Waiting for cloud init to finish. Waited $count minutes. Will wait 15 mintues."
+    sleep 60
+    count=$(( $count + 1 ))
+    if (( $count > 15 )); then
+        echo "ERROR: Timeout waiting for cloud-init to finish"
+        exit 1;
+    fi
+done
 
 # Update software
 sudo yum -y update

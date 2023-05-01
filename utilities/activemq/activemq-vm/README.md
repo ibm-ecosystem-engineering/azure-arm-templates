@@ -22,13 +22,35 @@ Deploys the following resources:
     - RHEL 8.6
 - Either the install script for Ubuntu or RHEL versions of ActiveMQ
 
-## Instructions
+## Instructions - Portal
+
+1. Click on the `Deploy to Azure` button above.
+
+2. Complete, review and update the parameters.
+
+    ![ActiveMQ Parameters1](./images/activemq-parameters1.png)
+    ![ActiveMQ Parameters2](./images/activemq-parameters2.png)
+
+    - Select an existing or create a new resource group
+    - Enter a name prefix which will be used for the created resources
+    - If using an existing vnet, ensure the vnet name, and subnet name match the existing ones (the CIDR values will not be used for existing VNet)
+    - Select the type of authentication. If adding a public IP, it is recommended to use SSH Public Key authentication. For SSH public key authentication, create a new key, use an existing one on Azure or copy & paste one from your local machine.
+    - Select the security type. ***Important. TrustedLaunch only works with Ubuntu. Do not select if using RHEL images***
+    - Select the OS disk type
+    - Select the type of image to deploy
+    - Select to create a public IP or not. If creating a public IP, the public IP name and domain name parameters will used.
+    
+3. When the parameters are complete, click on `Review + Create` at the bottom of the page.
+
+4. Once the parameters are validated, click on `Create` to commence the deployment.
+
+## Instructions - CLI
 
 The following instructions assume the use of the Azure CLI to deploy. It is also possible to use this deployment template through the Azure portal as part of a custom template deployment. 
 
 Clone this repository locally.
 
-    ```shell
+    ```
     $ git clone https://github.com/ibm-ecosystem-lab/azure-arm-templates.git
     ```
 
@@ -36,7 +58,7 @@ The following are examples of the configurations that can be deployed. Customize
 
 ### Create with new Virtual Network with Public IP
 
-```shell
+```
 $ RESOURCE_GROUP="<rgName>"
 $ IMAGE="<osImage>"
 $ NAME_PREFIX="<namePrefix>"
@@ -53,7 +75,7 @@ $ az deployment group create --name <deploymentName> \
 
 ### Existing Virtual Network without Public IP
 
-```shell
+```
 $ RESOURCE_GROUP="<rgName>"
 $ IMAGE="<osImage>"
 $ NAME_PREFIX="<namePrefix>"
@@ -75,7 +97,7 @@ $ az deployment group create --name <deploymentName> \
 
 ## Post deployment
 
-Post deployment the admin console for ActiveMQ is available at `https://<vm-ip>:8161/admin`.
+Post deployment the admin console for ActiveMQ is available at `http://<vm-ip>:8161/admin`. See the output from the deployment for details.
     
 The `<vm-ip>` will either be the internal IP address of the VM or the public IP depending upon whether a public IP was selected.
 
