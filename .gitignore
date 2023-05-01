@@ -2,3 +2,4 @@
 *.properties
 tmp
 *-parameters.json
+.DS_Store
