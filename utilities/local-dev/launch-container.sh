@@ -2,7 +2,7 @@
 
 CONTAINER_NAME="az-test"
 DOCKER_CMD="docker"
-DOCKER_IMAGE="mcr.microsoft.com/azure-cli:2.46.0"
+DOCKER_IMAGE="mcr.microsoft.com/azure-cli:2.45.0"
 
 displayUsage() {
   echo "Launches and attaches to a container."
