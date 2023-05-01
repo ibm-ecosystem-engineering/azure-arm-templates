@@ -98,7 +98,7 @@
                     }
                 ],
                 "scriptContent": "while true; do sleep 30; done;",
-                "timeout": "PT30M",
+                "timeout": "PT120M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
