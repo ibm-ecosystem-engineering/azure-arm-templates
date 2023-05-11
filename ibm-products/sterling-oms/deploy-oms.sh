@@ -591,6 +591,8 @@ metadata:
     apps.oms.ibm.com/dbvendor-install-driver: "true"
     apps.oms.ibm.com/dbvendor-auto-transform: "true"
     apps.oms.ibm.com/dbvendor-driver-url: "https://jdbc.postgresql.org/download/postgresql-42.2.27.jre7.jar"
+    apps.oms.ibm.com/activemq-install-driver: 'yes'
+    apps.oms.ibm.com/activemq-driver-url: "https://repo1.maven.org/maven2/org/apache/activemq/activemq-all/5.16.0/activemq-all-5.16.0.jar"  
 spec:
   license:
     accept: true
