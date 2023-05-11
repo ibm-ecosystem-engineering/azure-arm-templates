@@ -355,18 +355,21 @@
 						"visible": true
 					},
 					{
-						"name": "omsImage",
-						"type": "Microsoft.Common.TextBox",
-						"label": "Sterling OMS Image to Install",
-						"defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
-						"toolTip": "The OMS image to deploy",
-						"multiLine": false,
+						"name": "omsEdition",
+						"type": "Microsoft.Common.DropDown",
+						"label": "Sterling OMS Edition to Install",
+						"defaultValue": "Professional",
+						"toolTip": "The OMS edition to deploy",
 						"constraints": {
 						  "required": true,
-						  "validations": [
+						  "allowedValues": [
 							{
-							  "regex": "^[a-z0-9A-Z-/.:]{3,}$",
-							  "message": "Must be a valid image reference"
+								"label": "Professional",
+								"value": "Professional"
+							},
+							{
+								"label": "Enterprise",
+								"value": "Enterprise"
 							}
 						  ]
 						},
@@ -468,7 +471,7 @@
 			"workerSize": "[steps('openshift').workerNodes]",
 			"workerCount": "[steps('openshift').workerCount]",
 			"omsNamespace": "[steps('sterling').omsNamespace]",
-			"omsImage": "[steps('sterling').omsImage]"
+			"omsEdition": "[steps('sterling').omsEdition]"
          }
     }
 }
