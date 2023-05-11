@@ -212,6 +212,9 @@
                     "geoRedundantBackup": "[parameters('geoRedundantBackup')]"
                 },
                 "createMode": "Create",
+                "dataEncryption": {
+                    "type": "SystemManaged"
+                },
                 "highAvailability": {
                     "mode": "[parameters('dbHAMode')]"
                 },
