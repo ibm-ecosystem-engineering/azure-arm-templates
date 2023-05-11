@@ -395,6 +395,24 @@
                 "ZoneRedundant"
             ]
         },
+        "backupRetentionDays": {
+            "type": "int",
+            "defaultValue": 7,
+            "metadata": {
+                "description": "Number of days to retain backups"
+            }
+        },
+        "geoRedundantBackup": {
+            "type": "string",
+            "defaultValue": "disabled",
+            "allowedValues": [
+                "disabled",
+                "enabled"
+            ],
+            "metadata": {
+                "description": "Use geo redundant backups or not for PostgreSQL service"
+            }
+        },
         "branch": {
             "type": "string",
             "defaultValue": "main",
@@ -807,6 +825,12 @@
                     },
                     "dbHAMode": {
                         "value": "[parameters('dbHAMode')]"
+                    },
+                    "backupRetentionDays": {
+                        "value": "[parameters('backupRetentionDays')]"
+                    },
+                    "geoRedundantBackup": {
+                        "value": "[parameters('geoRedundantBackup')]"
                     }
                 }
             }
