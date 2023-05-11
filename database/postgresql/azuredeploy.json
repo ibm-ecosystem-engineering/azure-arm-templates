@@ -127,6 +127,15 @@
                 "description": "DNS endpoint name for the database service"
             }
         },
+        "dbHAMode": {
+            "type": "string",
+            "defaultValue": "ZoneRedundant",
+            "allowedValues": [
+                "Disabled",
+                "SameZone",
+                "ZoneRedundant"
+            ]
+        },
         "postgreSQLName": {
             "type": "string",
             "defaultValue": "[concat(parameters('namePrefix'),'-postgresql')]",
@@ -204,7 +213,7 @@
                 },
                 "createMode": "Create",
                 "highAvailability": {
-                    "mode": "ZoneRedundant"
+                    "mode": "[parameters('dbHAMode')]"
                 },
                 "network": {
                     "delegatedSubnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
