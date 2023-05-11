@@ -352,11 +352,15 @@
                 "description": "Kubernetes namespace for the OMS instance"
             }
         },
-        "omsImage": {
+        "omsEdition": {
             "type": "string",
-            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
+            "defaultValue": "Professional",
+            "allowedValues": [
+                "Professional",
+                "Enterprise"
+            ],
             "metadata": {
-                "description": "Sterling OMS Image to install"
+                "description": "Sterling OMS Edition to install"
             }
         },
         "dbStorageSizeGB": {
@@ -422,7 +426,8 @@
         }
     },
     "variables": {
-        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]"
+        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
+        "omsImage": "[if(equals(parameters('omsEdition'),'Professional'),'icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0','icr.io/cpopen/ibm-oms-ent-case-catalog:v1.0')]"
     },
     "resources": [
         { 
@@ -897,7 +902,7 @@
                         "value": "[parameters('adminPassword')]"
                     },
                     "whichOMS": {
-                        "value": "[parameters('omsImage')]"
+                        "value": "[variables('omsImage')]"
                     },
                     "registryName": {
                         "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"

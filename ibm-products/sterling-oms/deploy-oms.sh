@@ -571,6 +571,14 @@ EOF
 
     # Create OMEnvironment instance
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
+
+    if [[ $OPERATOR_NAME="ibm-oms-pro" ]]; then
+      export REPOSITORY="cp.icr.io/cp/ibm-oms-professional"
+      export TAG="10.0.2209.1-amd64"
+    else
+      export REPOSITORY="cp.icr.io/cp/ibm-oms-enterprise"
+      export TAG="10.0.2209.1-amd64"
+    fi
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     cleanup_file ${WORKSPACE_DIR}/omenvironment.yaml
     cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
@@ -643,19 +651,19 @@ spec:
     replicaCount: 1
   image:
     oms:
-      tag: 10.0.2209.1-amd64
-      repository: cp.icr.io/cp/ibm-oms-professional
+      tag: ${TAG}
+      repository: ${REPOSITORY}
     orderHub:
       base:
-        tag: 10.0.2209.1-amd64
-        repository: cp.icr.io/cp/ibm-oms-professional
+        tag: ${TAG}
+        repository: ${REPOSITORY}
       extn:
-        tag: 10.0.2209.1-amd64
-        repository: cp.icr.io/cp/ibm-oms-professional
+        tag: ${TAG}
+        repository: ${REPOSITORY}
     orderService:
       imageName: orderservice
-      repository: cp.icr.io/cp/ibm-oms-professional
-      tag: 10.0.2209.1-amd64
+      repository: ${REPOSITORY}
+      tag: ${TAG}
     imagePullSecrets:
       - name: ibm-entitlement-key
   networkPolicy:
