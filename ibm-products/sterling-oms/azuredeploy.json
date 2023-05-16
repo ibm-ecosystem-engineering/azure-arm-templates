@@ -110,6 +110,13 @@
                 "description": "Namespace for the Sterling OMS application"
             }
         },
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin username for database"
+            }
+        },
         "adminPassword": {
             "type": "secureString",
             "metadata": {
@@ -213,6 +220,10 @@
                     {
                         "name": "VNET_NAME",
                         "value": "[parameters('vnetName')]"
+                    },
+                    {
+                        "name": "ADMIN_USER",
+                        "value": "[parameters('adminUsername')]"
                     },
                     {
                         "name": "ADMIN_PASSWORD",

@@ -40,6 +40,7 @@ if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
+if [[ -z $ADMIN_USER ]]; then ADMIN_USER="azureuser"; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
@@ -56,6 +57,7 @@ if [[ -z $ES_PASSWORD ]]; then export ES_PASSWORD="$ADMIN_PASSWORD"; fi
 log-output "INFO: ARO Cluster is $ARO_CLUSTER"
 log-output "INFO: RESOURCE_GRUP is $RESOURCE_GROUP"
 log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
+log-output "INFO: ADMIN_USER is $ADMIN_USER"
 log-output "INFO: ADMIN_PASSWORD is set"
 log-output "INFO: WHICH_OMS is $WHICH_OMS"
 log-output "INFO: ACR_NAME is $ACR_NAME"
@@ -105,7 +107,7 @@ fi
 ######
 # Pause to let cluster settle if just created before trying to login
 if [[ $NEW_CLUSTER == "yes" ]]; then
-  log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
+  log-output "INFO: Sleeping for 10 minutes to let cluster finish setting up authentication services before logging in"
   sleep 600
 fi
 
@@ -396,9 +398,9 @@ metadata:
 spec: {}
 EOF
     if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/operator-group.yaml 2>&1) ; then
-        log-output "INFO: Successfully installed catalog source ibm-sterling-oms"
+        log-output "INFO: Successfully created operator group oms-operator-global"
     else
-        log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
+        log-output "FAILED: Unable to create operator group oms-operator-global"
         log-output "$error"
     fi
 else
@@ -556,9 +558,9 @@ EOF
         fi
 
         # Create schema if it does not exist
-        if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
+        if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=${ADMIN_USER} password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
             log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
-            if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
+            if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=${ADMIN_USER} password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
                 log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
             else
                 log-output "FAILED: Unable to create schema $SCHEMA_NAME"
@@ -610,7 +612,7 @@ spec:
       port: 5432
       schema: ${SCHEMA_NAME}
       secure: true
-      user: azureuser
+      user: ${ADMIN_USER}
   dataManagement:
     mode: create
   storage:

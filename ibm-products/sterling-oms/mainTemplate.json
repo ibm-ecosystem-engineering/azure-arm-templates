@@ -898,6 +898,9 @@
                     "omsNamespace": {
                         "value": "[parameters('omsNamespace')]"
                     },
+                    "adminUsername": {
+                        "value": "[parameters('adminUserName')]"
+                    },
                     "adminPassword": {
                         "value": "[parameters('adminPassword')]"
                     },
