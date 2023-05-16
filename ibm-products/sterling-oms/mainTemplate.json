@@ -548,7 +548,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployBastion')]",
+            "condition": "[and(parameters('deployBastion'),parameters('deployDevVM'))]",
             "name": "bastion",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
