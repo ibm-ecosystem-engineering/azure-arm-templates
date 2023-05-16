@@ -977,7 +977,7 @@
         "orderHubURL": {
             "type": "string",
             "condition": "[equals(parameters('acceptLicense'),'accept')]",
-            "value": "[concat('https://orderhub-oms.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/order-management')]"
+            "value": "[concat('https://orderhub-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/order-management')]"
         },
         "developerVMName": {
             "type": "string",
