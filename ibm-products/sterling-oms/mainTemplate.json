@@ -377,6 +377,13 @@
                 "description": "Sterling OMS Edition to install"
             }
         },
+        "dbName": {
+            "type": "string",
+            "defaultValue": "oms",
+            "metadata": {
+                "description": "Name of the database to be created"
+            }
+        },
         "dbStorageSizeGB": {
             "type": "int",
             "defaultValue": 2048,
@@ -917,6 +924,9 @@
                     },
                     "omInstanceName": {
                         "value": "[parameters('omInstanceName')]"
+                    },
+                    "dbName": {
+                        "value": "[parameters('dbName')]"
                     },
                     "adminUsername": {
                         "value": "[parameters('adminUserName')]"

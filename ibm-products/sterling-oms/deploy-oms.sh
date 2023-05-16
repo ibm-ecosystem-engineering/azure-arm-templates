@@ -300,13 +300,14 @@ EOF
     else
         log-output "FAILED: Unable to create OMS secret"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: OMS Secret already exists"
 fi
 
 # Get Azure container registry credentials
-if [[ $CREATE_ACR ]]; then
+if [[ $CREATE_ACR == "True" ]]; then
   if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
       log-output "INFO: Creating Azure container registry login Secret"
       export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
@@ -320,6 +321,7 @@ EOF
       else
           log-output "FAILED: Unable to create Azure container registry secret"
           log-output "$error"
+          exit 1
       fi
   else
       log-output "INFO: Azure container registry login secret already created on cluster"
@@ -336,6 +338,7 @@ if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-k
     else
         log-output "FAILED: Unable to create IBM Entitlement Key docker registry secret"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: Using existing entitlement key secret"
@@ -378,6 +381,7 @@ EOF
     else
         log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
         log-output "$error"
+        exit 1
     fi
 
 else
@@ -390,7 +394,7 @@ log-output "INFO: Catalog ibm-sterling-oms ready"
 
 # Create operator group
 
-if [[ -z $() ]]; then
+if [[ -z $(${BIN_DIR}/oc get operatorgroup -n ${OMS_NAMESPACE} | grep oms-operator-global) ]]; then
   log-output "INFO: Creating operator group oms-operator-global"
   cleanup_file ${WORKSPACE_DIR}/operator-group.yaml
   cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
@@ -406,6 +410,7 @@ EOF
     else
         log-output "FAILED: Unable to create operator group oms-operator-global"
         log-output "$error"
+        exit 1
     fi
 else
   log-output "INFO: Operator group oms-operator-global already exists"
@@ -436,6 +441,7 @@ EOF
     else
         log-output "FAILED: Unable to install OMS operator"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: IBM OMS Operator already installed"
@@ -488,6 +494,7 @@ EOF
     else
         log-output "FAILED: Unable to create psql client pod"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: Using existing psql client pod ${PSQL_POD_NAME}"
@@ -499,6 +506,7 @@ count=1;
 while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
     log-output "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
     sleep 30
+    count=$(( $count + 1 ))
     if (( $count > 10 )); then
         log-output "ERROR: Timeout waiting for pod ${PSQL_POD_NAME} to start."
         exit 1
@@ -535,6 +543,7 @@ EOF
       else
           log-output "FAILED: Unable to create OMS PVC"
           log-output "$error"
+          exit 1
       fi
     else
         log-output "INFO: PVC for OMS already exists"
@@ -556,6 +565,7 @@ EOF
             else
                 log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
                 log-output "$error"
+                exit 1
             fi
         else
             log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
@@ -569,6 +579,7 @@ EOF
             else
                 log-output "FAILED: Unable to create schema $SCHEMA_NAME"
                 log-output "$error"
+                exit 1
             fi
         else
             log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
@@ -774,8 +785,8 @@ EOF
   done
 
   # Sleep to allow pods to finish starting up
-  log-output "INFO: Sleeping for 5 minutes to allow pods to finish starting"
-  sleep 300
+  log-output "INFO: Sleeping for 3 minutes to allow pods to finish starting"
+  sleep 180
 else
     log-output "INFO: License not accepted. Manually create instance"
 fi
