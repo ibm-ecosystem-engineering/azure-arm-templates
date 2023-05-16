@@ -14,7 +14,7 @@
 					"validations": [
 						{
 							"regex": "^[a-zA-Z]+[a-z0-9A-Z]{2,10}$",
-							"message": "Only alphanumeric charactors are allowed, the first character must be a letter and must be between 3 and 10 characters in length."
+							"message": "Only alphanumeric characters are allowed, the first character must be a letter and must be between 3 and 10 characters in length."
 						}
 					]
 				}
@@ -129,6 +129,16 @@
 				"label": "OpenShift",
 				"elements": [
 					{
+						"name": "aroInfo",
+						"type": "Microsoft.Common.InfoBox",
+						"visible": true,
+						"options": {
+						  "icon": "None",
+						  "text": "The choices in this section relate to the Azure Red Hat Openshift (ARO) cluster that will be created. Click here for details.",
+						  "uri": "https://learn.microsoft.com/en-us/azure/openshift/"
+						}
+					},
+					{
 						"name": "masterNodes",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Master VM Size",
@@ -230,19 +240,14 @@
 						"options": {
 							"hideDiskTypeFilter": false
 						},
-						"osPlatform": "Windows",
-						"imageReference": {
-							"publisher": "MicrosoftWindowsServer",
-							"offer": "WindowsServer",
-							"sku": "2012-R2-Datacenter"
-						},
+						"osPlatform": "Linux",
 						"count": "[steps('openshift').workerCount]",
 						"visible": true
 					},
 					{
 							"name": "workerCount",
 							"type": "Microsoft.Common.Slider",
-							"min": 2,
+							"min": 3,
 							"max": 64,
 							"label": "Worker Node Quantity",
 							"defaultValue": 3,
@@ -295,6 +300,153 @@
 				]
 			},
 			{
+				"name": "database",
+				"label": "PostgreSQL Database",
+				"elements": [
+					{
+						"name": "dbInfo",
+						"type": "Microsoft.Common.InfoBox",
+						"visible": true,
+						"options": {
+						  "icon": "None",
+						  "text": "The choices in this section relate to the PostgreSQL flexible database server that will be created. Click here for details.",
+						  "uri": "https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/"
+						}
+					},
+					{
+						"name": "dbVMSize",
+						"type": "Microsoft.Compute.SizeSelector",
+						"label": "Database VM Size",
+						"toolTip": "",
+						"recommendedSizes": [
+						  "Standard_E4ds_v4",
+						  "Standard_E16ds_v4",
+						  "Standard_E32ds_v4"
+						],
+						"constraints": {
+						  "allowedSizes": [
+							"Standard_E2ds_v4",
+							"Standard_E4ds_v4",
+							"Standard_E8ds_v4",
+							"Standard_E16ds_v4",
+							"Standard_E20ds_v4",
+							"Standard_E32ds_v4",
+							"Standard_E48ds_v4",
+							"Standard_E64ds_v4"
+						  ]
+						},
+						"options": {
+						  "hideDiskTypeFilter": false
+						},
+						"osPlatform": "Linux",
+						"count": 1,
+						"visible": true
+					  },
+					  {
+						"name": "dbStorageSizeGB",
+						"type": "Microsoft.Common.DropDown",
+						"label": "Database Size",
+						"defaultValue": "2,048 GiB",
+						"toolTip": "Size of the database storage",
+						"constraints": {
+						  "allowedValues": [
+							{
+							  "label": "32 GiB",
+							  "value": 32
+							},
+							{
+							  "label": "64 GiB",
+							  "value": 64
+							},
+							{
+							  "label": "128 GiB",
+							  "value": 128
+							},
+							{
+							  "label": "256 GiB",
+							  "value": 256
+							},
+							{
+							  "label": "512 GiB",
+							  "value": 512
+							},
+							{
+							  "label": "1,024 GiB",
+							  "value": 1024
+							},
+							{
+							  "label": "2,048 GiB",
+							  "value": 2048
+							},
+							{
+							  "label": "4,096 GiB",
+							  "value": 4096
+							},
+							{
+							  "label": "8,192 GiB",
+							  "value": 8192
+							},
+							{
+							  "label": "16,384 GiB",
+							  "value": 16384
+							}
+						  ],
+						  "required": true
+						},
+						"visible": true
+					  },
+					  {
+						"name": "dbHAMode",
+						"type": "Microsoft.Common.OptionsGroup",
+						"label": "High Availability Mode",
+						"defaultValue": "Availability Zone Redundancy",
+						"toolTip": "Type of high availability required",
+						"constraints": {
+						  "allowedValues": [
+							{
+							  "label": "None",
+							  "value": "Disabled"
+							},
+							{
+							  "label": "Same Availability Zone",
+							  "value": "SameZone"
+							},
+							{
+							  "label": "Availability Zone Redundancy",
+							  "value": "ZoneRedundant"
+							}
+						  ],
+						  "required": true
+						},
+						"visible": true
+					  },
+					  {
+							  "name": "backupRetentionDays",
+							  "type": "Microsoft.Common.Slider",
+							  "min": 7,
+							  "max": 35,
+							  "label": "Backup Retention Time",
+							  "subLabel": "days",
+							  "defaultValue": 3,
+							  "showStepMarkers": true,
+							  "toolTip": "How long to retain automated backups",
+							  "constraints": {
+								  "required": false
+							  },
+							  "visible": true
+					  },
+					  {
+						"name": "geoRedundantBackup",
+						"type": "Microsoft.Common.CheckBox",
+						"label": "Geo-Redundant Backups",
+						"toolTip": "Available in Azure paired regions.",
+						"constraints": {
+							"required": false
+						}
+					}
+				]
+			},
+			{
 				"name": "sterling",
 				"label": "Sterling Software",
 				"elements": [
@@ -303,7 +455,8 @@
 						"type": "Microsoft.Common.PasswordBox",	
 						"toolTip": "API Key for IBM registry entitlement to image",					
 						"label": {
-							"password": "API Key"
+							"password": "API Key",
+							"confirmPassword": "Confirm API Key"
 						},
 						"constraints": {
 							"required": true,
@@ -374,6 +527,60 @@
 						  ]
 						},
 						"visible": true
+					},
+					{
+						"name": "omsInstanceName",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Name of the OM Instance to create",
+						"defaultValue": "oms-instance",
+						"toolTip": "Name for the Order Management instance that will be created",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z0-9A-Z-]{3,}$",
+							  "message": "Only alphanumeric characters and dashes are allowed, and the value must be more than 3 characters long."
+							}
+						  ]
+						},
+						"visible": true
+					},
+					{
+						"name": "dbName",
+						"type": "Microsoft.Common.TextBox",
+						"label": "Name of the database to create",
+						"defaultValue": "oms",
+						"toolTip": "Name for the database that will be created for the OMS",
+						"multiLine": false,
+						"constraints": {
+						  "required": true,
+						  "validations": [
+							{
+							  "regex": "^[a-z_]+[a-z0-9A-Z_]{3,10}$",
+							  "message": "Name must begin with a lowercase letter. Subsequent characters can be letters, numbers or underscores. Must be between 3 and 10 characters in length."
+							}
+						  ]
+						},
+						"visible": true
+					},
+					{
+						"name": "createACR",
+						"type": "Microsoft.Common.CheckBox",
+						"label": "Create Private Container Registry",
+						"toolTip": "Will create a private container registry and configure secret in ARO.",
+						"constraints": {
+							"required": false
+						}
+					},
+					{
+						"name": "createDevVM",
+						"type": "Microsoft.Common.CheckBox",
+						"label": "Create a developer VM",
+						"toolTip": "Will create a developer VM for custom image creation and management.",
+						"constraints": {
+							"required": false
+						}
 					}
 				]
 			},
@@ -383,15 +590,17 @@
 				"elements": [
 					{
 						"name": "adminUserName",
-						"type": "Microsoft.Common.TextBox",
+						"type": "Microsoft.Compute.UserNameTextBox",
 						"label": "Admin Username",
 						"defaultValue": "azureuser",
-						"toolTip": "Administrator username for deployed VMs",
+						"toolTip": "Administrator username for deployed VMs and database",
 						"constraints": {
-							"required": true,
-							"regex": "^[A-Za-z0-9]{5,}$",
-							"validationMessage": "Must be only alphanumeric and 5 or more characters long"
-						}
+						  "required": true,
+						  "regex": "^(?!azuresu|public|loginmanager|dbmanager)[a-z0-9A-Z]{5,30}$",
+						  "validationMessage": "Only alphanumeric characters are allowed, and the value must be 5-30 characters long. Reserved usernames are not allowed."
+						},
+						"osPlatform": "Linux",
+						"visible": true
 					},
 					{
 						"name": "adminPassword",
@@ -471,7 +680,16 @@
 			"workerSize": "[steps('openshift').workerNodes]",
 			"workerCount": "[steps('openshift').workerCount]",
 			"omsNamespace": "[steps('sterling').omsNamespace]",
-			"omsEdition": "[steps('sterling').omsEdition]"
+			"omsEdition": "[steps('sterling').omsEdition]",
+			"omsInstanceName": "[steps('sterling').omsInstanceName]",
+			"dbName": "[steps('sterling').dbName]",
+			"deployACR": "[steps('sterling').createACR]",
+			"deployDevVM": "[steps('sterling').createDevVM]",
+			"dbVMSize": "[steps('database').dbVMSize]",
+			"dbStorageSizeGB": "[steps('database').dbStorageSizeGB]",
+			"dbHAMode": "[steps('database').dbHAMode]",
+			"backupRetentionDays": "[steps('database').backupRetentionDays]",
+			"geoRedundantBackup": "[if(equals(steps('database').geoRedundantBackup,'true'),'enabled','disabled')]"
          }
     }
 }
