@@ -262,6 +262,13 @@
                 "description": "Visibility of cluster ingress portal - public or private"
             }
         },
+        "domain": {
+            "type": "string",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),substring(uniqueString(resourceGroup().id),1,7))]",
+            "metadata": {
+                "description": "Domain name prefix for the ARO cluster. Default is generated from resource group id."
+            }
+        },
         "storageAccountName": {
             "type": "string",
             "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'s',substring(uniqueString(resourceGroup().id),1,7))]",
@@ -672,6 +679,9 @@
                     "ingressVisibility": {
                         "value": "[parameters('ingressVisibility')]"
                     },
+                    "domain": {
+                        "value": "[parameters('domain')]"
+                    },
                     "createAzureFileStorage": {
                         "value": false
                     }
@@ -929,5 +939,41 @@
                 }
             }
         }
-    ]
+    ],
+    "outputs": {
+        "resourceGroup": {
+            "type": "string",
+            "value": "[resourceGroup().name]"
+        },
+        "clusterName": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','aro'),'2021-04-01').outputs['clusterName'].value]"
+        },
+        "aroClusterURL": {
+            "type": "string",
+            "value": "[concat('https://console-openshift-console.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/')]"
+        },
+        "aroClusterUsername": {
+            "type": "string",
+            "value": "kubeadmin"
+        },
+        "aroClusterPassword": {
+            "type": "string",
+            "value": "Use \"az aro list-credentials -g resourceGroup -n clusterName\" to obtain credentials"
+        },
+        "orderHubURL": {
+            "type": "string",
+            "value": "[concat('https://orderhub-oms.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/order-management')]"
+        },
+        "developerVMName": {
+            "type": "string",
+            "condition": "[parameters('deployDevVM')]",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','dev-vm'),'2021-04-01').outputs['vmName'].value]"
+        },
+        "privateContainerRegistryName": {
+            "type": "string",
+            "condition": "[parameters('deployACR')]",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+        }
+    }
 }
