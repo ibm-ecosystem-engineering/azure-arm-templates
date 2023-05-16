@@ -110,6 +110,13 @@
                 "description": "Namespace for the Sterling OMS application"
             }
         },
+        "omInstanceName": {
+            "type": "string",
+            "defaultValue": "oms-instance",
+            "metadata": {
+                "description": "Name of the instance to be created"
+            }
+        },
         "adminUsername": {
             "type": "string",
             "defaultValue": "azureuser",
@@ -216,6 +223,10 @@
                     {
                         "name": "OMS_NAMESPACE",
                         "value": "[parameters('omsNamespace')]"
+                    },
+                    {
+                        "name": "OM_INSTANCE_NAME",
+                        "value": "[parameters('omInstanceName')]"
                     },
                     {
                         "name": "VNET_NAME",

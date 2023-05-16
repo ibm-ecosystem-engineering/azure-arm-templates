@@ -352,6 +352,13 @@
                 "description": "Kubernetes namespace for the OMS instance"
             }
         },
+        "omInstanceName": {
+            "type": "string",
+            "defaultValue": "oms-instance",
+            "metadata": {
+                "description": "Name of the instance to be created"
+            }
+        },
         "omsEdition": {
             "type": "string",
             "defaultValue": "Professional",
@@ -897,6 +904,9 @@
                     },
                     "omsNamespace": {
                         "value": "[parameters('omsNamespace')]"
+                    },
+                    "omInstanceName": {
+                        "value": "[parameters('omInstanceName')]"
                     },
                     "adminUsername": {
                         "value": "[parameters('adminUserName')]"
