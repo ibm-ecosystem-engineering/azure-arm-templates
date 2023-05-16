@@ -899,7 +899,7 @@
                         "value": true
                     },
                     "storageAccountName": {
-                        "value": "[concat(parameters('namePrefix'),'deployscripts',substring(uniqueString(resourceGroup().id),1,7))]"
+                        "value": "[concat(parameters('namePrefix'),'script',substring(uniqueString(resourceGroup().id),1,7))]"
                     },
                     "vnetName": {
                         "value": "[parameters('vnetName')]"
@@ -976,6 +976,7 @@
         },
         "orderHubURL": {
             "type": "string",
+            "condition": "[equals(parameters('acceptLicense'),'accept')]",
             "value": "[concat('https://orderhub-oms.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/order-management')]"
         },
         "developerVMName": {
