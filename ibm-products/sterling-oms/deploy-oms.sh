@@ -41,6 +41,7 @@ if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
 if [[ -z $ADMIN_USER ]]; then ADMIN_USER="azureuser"; fi
+if [[ -z $CREATE_ACR ]]; then CREATE_ACR=true; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
@@ -60,6 +61,7 @@ log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
 log-output "INFO: ADMIN_USER is $ADMIN_USER"
 log-output "INFO: ADMIN_PASSWORD is set"
 log-output "INFO: WHICH_OMS is $WHICH_OMS"
+log-output "INFO: CREATE_ACR is $CREATE_ACR"
 log-output "INFO: ACR_NAME is $ACR_NAME"
 log-output "INFO: STORAGE_ACCOUNT_NAME is $STORAGE_ACCOUNT_NAME"
 log-output "INFO: FILE TYPE is $FILE_TYPE"
@@ -304,22 +306,24 @@ else
 fi
 
 # Get Azure container registry credentials
-if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
-    log-output "INFO: Creating Azure container registry login Secret"
-    export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
-    export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
-    cleanup_file ${WORKSPACE_DIR}/oms-pullsecret.json
-    cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
+if [[ $CREATE_ACR ]]; then
+  if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
+      log-output "INFO: Creating Azure container registry login Secret"
+      export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
+      export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
+      cleanup_file ${WORKSPACE_DIR}/oms-pullsecret.json
+      cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
 {"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
-    if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
-        log-output "INFO: Successfully created Azure container registry secret" 
-    else
-        log-output "FAILED: Unable to create Azure container registry secret"
-        log-output "$error"
-    fi
-else
-    log-output "INFO: Azure container registry login secret already created on cluster"
+      if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
+          log-output "INFO: Successfully created Azure container registry secret" 
+      else
+          log-output "FAILED: Unable to create Azure container registry secret"
+          log-output "$error"
+      fi
+  else
+      log-output "INFO: Azure container registry login secret already created on cluster"
+  fi
 fi
 
 
@@ -755,7 +759,7 @@ EOF
     log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
   fi
 
-  # Wait for isntance to be created
+  # Wait for instance to be created
   count=0
   while [[ $(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[] | select(.type=="OMEnvironmentAvailable").status') != "True" ]]; do
       current_status=$(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[].reason')
@@ -768,8 +772,12 @@ EOF
           exit 1
       fi
   done
+
+  # Sleep to allow pods to finish starting up
+  log-output "INFO: Sleeping for 5 minutes to allow pods to finish starting"
+  sleep 300
 else
     log-output "INFO: License not accepted. Manually create instance"
 fi
 
-#### Patch OMEnvironment to change data management to upgrade from create
+log-output "INFO: Completed"

@@ -137,6 +137,13 @@
                 "description": "Sterling OMS Image"
             }
         },
+        "createACR": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create secret for private registry."
+            }
+        },
         "registryName": {
             "type": "string",
             "defaultValue": "[concat(parameters('namePrefix'),'registry')]",
@@ -241,6 +248,10 @@
                         "secureValue": "[parameters('adminPassword')]"
                     },
                     {
+                        "name": "CREATE_ACR",
+                        "value": "[parameters('createACR')]"
+                    },
+                    {
                         "name": "ACR_NAME",
                         "value": "[parameters('registryName')]"
                     },
@@ -277,7 +288,7 @@
                 "supportingScriptUris": [
                     "[uri(variables('baseUrl'),'common/scripts/common.sh')]"
                 ],
-                "timeout": "PT90M",
+                "timeout": "PT120M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },

@@ -271,7 +271,7 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'s',substring(uniqueString(resourceGroup().id),1,7))]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'file',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name for the storage account"
             }            
@@ -892,7 +892,7 @@
                         "value": true
                     },
                     "storageAccountName": {
-                        "value": "[concat(parameters('namePrefix'),'deployscripts')]"
+                        "value": "[concat(parameters('namePrefix'),'deployscripts',substring(uniqueString(resourceGroup().id),1,7))]"
                     },
                     "vnetName": {
                         "value": "[parameters('vnetName')]"
@@ -927,8 +927,11 @@
                     "whichOMS": {
                         "value": "[variables('omsImage')]"
                     },
+                    "createACR": {
+                        "value": "[parameters('deployACR')]"
+                    },
                     "registryName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+                        "value": "[if(parameters('deployACR'),reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value,'NULL')]"
                     },
                     "acceptLicense": {
                         "value": "[parameters('acceptLicense')]"
