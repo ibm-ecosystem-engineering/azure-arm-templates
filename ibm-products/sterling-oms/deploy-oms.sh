@@ -735,10 +735,13 @@ spec:
         vendor: websphere
   serviceAccount: default
   upgradeStrategy: RollingUpdate
-  customerOverrides:
-      - groupName: BaseProperties
-        propertyList:
-          yfs.yfs.ssi.enabled: N
+  serverProperties:
+    customerOverrides:
+        - groupName: BaseProperties
+          propertyList:
+            yfs.yfs.ssi.enabled: N
+            yfs.api.security.enabled: Y
+            yfs.api.security.token.enabled: Y
 EOF
     if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml 2>&1) ; then
         log-output "INFO: Successfully installed OMEnvironment instance"
