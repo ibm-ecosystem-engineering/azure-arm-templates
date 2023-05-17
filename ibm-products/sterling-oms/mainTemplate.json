@@ -262,9 +262,16 @@
                 "description": "Visibility of cluster ingress portal - public or private"
             }
         },
+        "domain": {
+            "type": "string",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),substring(uniqueString(resourceGroup().id),1,7))]",
+            "metadata": {
+                "description": "Domain name prefix for the ARO cluster. Default is generated from resource group id."
+            }
+        },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'s',substring(uniqueString(resourceGroup().id),1,7))]",
+            "defaultValue": "[concat(toLower(first(parameters('namePrefix'))),'file',substring(uniqueString(resourceGroup().id),1,7))]",
             "metadata": {
                 "description": "Name for the storage account"
             }            
@@ -352,11 +359,83 @@
                 "description": "Kubernetes namespace for the OMS instance"
             }
         },
-        "omsImage": {
+        "omInstanceName": {
             "type": "string",
-            "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
+            "defaultValue": "oms-instance",
             "metadata": {
-                "description": "Sterling OMS Image to install"
+                "description": "Name of the instance to be created"
+            }
+        },
+        "omsEdition": {
+            "type": "string",
+            "defaultValue": "Professional",
+            "allowedValues": [
+                "Professional",
+                "Enterprise"
+            ],
+            "metadata": {
+                "description": "Sterling OMS Edition to install"
+            }
+        },
+        "dbName": {
+            "type": "string",
+            "defaultValue": "oms",
+            "metadata": {
+                "description": "Name of the database to be created"
+            }
+        },
+        "dbStorageSizeGB": {
+            "type": "int",
+            "defaultValue": 2048,
+            "allowedValues": [
+                32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
+            ],
+            "metadata": {
+                "description": "Initial database size in GB. Note that storage cannot be scaled down once created."
+            }
+        },
+        "dbVMSize": {
+            "type": "string",
+            "defaultValue": "Standard_E16ds_v4",
+            "allowedValues": [
+                "Standard_E2ds_v4",
+                "Standard_E4ds_v4",
+                "Standard_E8ds_v4",
+                "Standard_E16ds_v4",
+                "Standard_E20ds_v4",
+                "Standard_E32ds_v4",
+                "Standard_E48ds_v4",
+                "Standard_E64ds_v4"
+            ],
+            "metadata": {
+                "description": "PostgreSQL VM Size"
+            }
+        },
+        "dbHAMode": {
+            "type": "string",
+            "defaultValue": "ZoneRedundant",
+            "allowedValues": [
+                "Disabled",
+                "SameZone",
+                "ZoneRedundant"
+            ]
+        },
+        "backupRetentionDays": {
+            "type": "int",
+            "defaultValue": 7,
+            "metadata": {
+                "description": "Number of days to retain backups"
+            }
+        },
+        "geoRedundantBackup": {
+            "type": "string",
+            "defaultValue": "disabled",
+            "allowedValues": [
+                "disabled",
+                "enabled"
+            ],
+            "metadata": {
+                "description": "Use geo redundant backups or not for PostgreSQL service"
             }
         },
         "branch": {
@@ -368,7 +447,8 @@
         }
     },
     "variables": {
-        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]"
+        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
+        "omsImage": "[if(equals(parameters('omsEdition'),'Professional'),'icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0','icr.io/cpopen/ibm-oms-ent-case-catalog:v1.0')]"
     },
     "resources": [
         { 
@@ -475,7 +555,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployBastion')]",
+            "condition": "[and(parameters('deployBastion'),parameters('deployDevVM'))]",
             "name": "bastion",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
@@ -605,6 +685,9 @@
                     },
                     "ingressVisibility": {
                         "value": "[parameters('ingressVisibility')]"
+                    },
+                    "domain": {
+                        "value": "[parameters('domain')]"
                     },
                     "createAzureFileStorage": {
                         "value": false
@@ -762,6 +845,21 @@
                     },
                     "dbDNSZoneName": {
                         "value": "[parameters('dbDNSName')]"
+                    },
+                    "dbVMSize": {
+                        "value": "[parameters('dbVMSize')]"
+                    },
+                    "dbStorageSizeGB": {
+                        "value": "[parameters('dbStorageSizeGB')]"
+                    },
+                    "dbHAMode": {
+                        "value": "[parameters('dbHAMode')]"
+                    },
+                    "backupRetentionDays": {
+                        "value": "[parameters('backupRetentionDays')]"
+                    },
+                    "geoRedundantBackup": {
+                        "value": "[parameters('geoRedundantBackup')]"
                     }
                 }
             }
@@ -801,7 +899,7 @@
                         "value": true
                     },
                     "storageAccountName": {
-                        "value": "[concat(parameters('namePrefix'),'deployscripts')]"
+                        "value": "[concat(parameters('namePrefix'),'script',substring(uniqueString(resourceGroup().id),1,7))]"
                     },
                     "vnetName": {
                         "value": "[parameters('vnetName')]"
@@ -824,14 +922,26 @@
                     "omsNamespace": {
                         "value": "[parameters('omsNamespace')]"
                     },
+                    "omInstanceName": {
+                        "value": "[parameters('omInstanceName')]"
+                    },
+                    "dbName": {
+                        "value": "[parameters('dbName')]"
+                    },
+                    "adminUsername": {
+                        "value": "[parameters('adminUserName')]"
+                    },
                     "adminPassword": {
                         "value": "[parameters('adminPassword')]"
                     },
                     "whichOMS": {
-                        "value": "[parameters('omsImage')]"
+                        "value": "[variables('omsImage')]"
+                    },
+                    "createACR": {
+                        "value": "[parameters('deployACR')]"
                     },
                     "registryName": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+                        "value": "[if(parameters('deployACR'),reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value,'NULL')]"
                     },
                     "acceptLicense": {
                         "value": "[parameters('acceptLicense')]"
@@ -842,5 +952,38 @@
                 }
             }
         }
-    ]
+    ],
+    "outputs": {
+        "resourceGroup": {
+            "type": "string",
+            "value": "[resourceGroup().name]"
+        },
+        "clusterName": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','aro'),'2021-04-01').outputs['clusterName'].value]"
+        },
+        "aroClusterURL": {
+            "type": "string",
+            "value": "[uri(concat('https://console-openshift-console.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/'),'')]"
+        },
+        "aroClusterCredentials": {
+            "type": "string",
+            "value": "Use \"az aro list-credentials -g resourceGroup -n clusterName\" to obtain credentials"
+        },
+        "orderHubURL": {
+            "type": "string",
+            "condition": "[equals(parameters('acceptLicense'),'accept')]",
+            "value": "[uri(concat('https://orderhub-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io'),'/order-management')]"
+        },
+        "developerVMName": {
+            "type": "string",
+            "condition": "[parameters('deployDevVM')]",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','dev-vm'),'2021-04-01').outputs['vmName'].value]"
+        },
+        "privateContainerRegistryName": {
+            "type": "string",
+            "condition": "[parameters('deployACR')]",
+            "value": "[reference(resourceId('Microsoft.Resources/deployments','private-acr'),'2021-04-01').outputs['acrName'].value]"
+        }
+    }
 }

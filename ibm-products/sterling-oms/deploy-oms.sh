@@ -40,6 +40,8 @@ if [[ -z $SCHEMA_NAME ]]; then export SCHEMA_NAME="oms"; fi
 if [[ -z $OM_INSTANCE_NAME ]]; then export OM_INSTANCE_NAME="oms-instance"; fi
 if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
+if [[ -z $ADMIN_USER ]]; then ADMIN_USER="azureuser"; fi
+if [[ -z $CREATE_ACR ]]; then CREATE_ACR=true; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
@@ -56,8 +58,10 @@ if [[ -z $ES_PASSWORD ]]; then export ES_PASSWORD="$ADMIN_PASSWORD"; fi
 log-output "INFO: ARO Cluster is $ARO_CLUSTER"
 log-output "INFO: RESOURCE_GRUP is $RESOURCE_GROUP"
 log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
+log-output "INFO: ADMIN_USER is $ADMIN_USER"
 log-output "INFO: ADMIN_PASSWORD is set"
 log-output "INFO: WHICH_OMS is $WHICH_OMS"
+log-output "INFO: CREATE_ACR is $CREATE_ACR"
 log-output "INFO: ACR_NAME is $ACR_NAME"
 log-output "INFO: STORAGE_ACCOUNT_NAME is $STORAGE_ACCOUNT_NAME"
 log-output "INFO: FILE TYPE is $FILE_TYPE"
@@ -105,7 +109,7 @@ fi
 ######
 # Pause to let cluster settle if just created before trying to login
 if [[ $NEW_CLUSTER == "yes" ]]; then
-  log-output "INFO: Sleeping for 5 minutes to let cluster finish setting up authentication services before logging in"
+  log-output "INFO: Sleeping for 10 minutes to let cluster finish setting up authentication services before logging in"
   sleep 600
 fi
 
@@ -296,28 +300,32 @@ EOF
     else
         log-output "FAILED: Unable to create OMS secret"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: OMS Secret already exists"
 fi
 
 # Get Azure container registry credentials
-if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
-    log-output "INFO: Creating Azure container registry login Secret"
-    export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
-    export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
-    cleanup_file ${WORKSPACE_DIR}/oms-pullsecret.json
-    cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
+if [[ $CREATE_ACR == "True" ]]; then
+  if [[ -z $(${BIN_DIR}/oc get secrets --all-namespaces | grep $ACR_NAME-dockercfg ) ]]; then
+      log-output "INFO: Creating Azure container registry login Secret"
+      export ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
+      export ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv )
+      cleanup_file ${WORKSPACE_DIR}/oms-pullsecret.json
+      cat << EOF >> ${WORKSPACE_DIR}/oms-pullsecret.json
 {"auths":{"$ACR_LOGIN_SERVER":{"auth":"$ACR_PASSWORD"}}}
 EOF
-    if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
-        log-output "INFO: Successfully created Azure container registry secret" 
-    else
-        log-output "FAILED: Unable to create Azure container registry secret"
-        log-output "$error"
-    fi
-else
-    log-output "INFO: Azure container registry login secret already created on cluster"
+      if error=$(${BIN_DIR}/oc create secret generic $ACR_NAME-dockercfg --from-file=.dockercfg=${WORKSPACE_DIR}/oms-pullsecret.json --type=kubernetes.io/dockercfg  2>&1) ; then
+          log-output "INFO: Successfully created Azure container registry secret" 
+      else
+          log-output "FAILED: Unable to create Azure container registry secret"
+          log-output "$error"
+          exit 1
+      fi
+  else
+      log-output "INFO: Azure container registry login secret already created on cluster"
+  fi
 fi
 
 
@@ -330,6 +338,7 @@ if [[ -z $(${BIN_DIR}/oc get secret -n ${OMS_NAMESPACE} | grep ibm-entitlement-k
     else
         log-output "FAILED: Unable to create IBM Entitlement Key docker registry secret"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: Using existing entitlement key secret"
@@ -372,6 +381,7 @@ EOF
     else
         log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
         log-output "$error"
+        exit 1
     fi
 
 else
@@ -384,7 +394,7 @@ log-output "INFO: Catalog ibm-sterling-oms ready"
 
 # Create operator group
 
-if [[ -z $() ]]; then
+if [[ -z $(${BIN_DIR}/oc get operatorgroup -n ${OMS_NAMESPACE} | grep oms-operator-global) ]]; then
   log-output "INFO: Creating operator group oms-operator-global"
   cleanup_file ${WORKSPACE_DIR}/operator-group.yaml
   cat << EOF >> ${WORKSPACE_DIR}/operator-group.yaml
@@ -396,10 +406,11 @@ metadata:
 spec: {}
 EOF
     if error=$(${BIN_DIR}/oc apply -f ${WORKSPACE_DIR}/operator-group.yaml 2>&1) ; then
-        log-output "INFO: Successfully installed catalog source ibm-sterling-oms"
+        log-output "INFO: Successfully created operator group oms-operator-global"
     else
-        log-output "FAILED: Unable to install catalog source ibm-sterling-oms"
+        log-output "FAILED: Unable to create operator group oms-operator-global"
         log-output "$error"
+        exit 1
     fi
 else
   log-output "INFO: Operator group oms-operator-global already exists"
@@ -430,6 +441,7 @@ EOF
     else
         log-output "FAILED: Unable to install OMS operator"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: IBM OMS Operator already installed"
@@ -482,6 +494,7 @@ EOF
     else
         log-output "FAILED: Unable to create psql client pod"
         log-output "$error"
+        exit 1
     fi
 else
     log-output "INFO: Using existing psql client pod ${PSQL_POD_NAME}"
@@ -493,6 +506,7 @@ count=1;
 while [[ $(${BIN_DIR}/oc get pods -n ${OMS_NAMESPACE} | grep ${PSQL_POD_NAME} | awk '{print $3}') != "Running" ]]; do
     log-output "INFO: Waiting for psql client pod ${PSQL_POD_NAME} to start. Waited $(( $count * 30 )) seconds. Will wait up to 300 seconds."
     sleep 30
+    count=$(( $count + 1 ))
     if (( $count > 10 )); then
         log-output "ERROR: Timeout waiting for pod ${PSQL_POD_NAME} to start."
         exit 1
@@ -529,6 +543,7 @@ EOF
       else
           log-output "FAILED: Unable to create OMS PVC"
           log-output "$error"
+          exit 1
       fi
     else
         log-output "INFO: PVC for OMS already exists"
@@ -550,19 +565,21 @@ EOF
             else
                 log-output "FAILED: Unable to create $DB_NAME in server $PSQL_NAME"
                 log-output "$error"
+                exit 1
             fi
         else
             log-output "INFO: Database $DB_NAME already exists in PostgeSQL server $PSQL_NAME"
         fi
 
         # Create schema if it does not exist
-        if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
+        if [[ -z $(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=${ADMIN_USER} password=${ADMIN_PASSWORD} sslmode=require" -c "SELECT schema_name FROM information_schema.schemata;" | grep ${SCHEMA_NAME}) ]]; then
             log-output "INFO: Creating schema $SCHEMA_NAME in database $DB_NAME"
-            if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=azureuser password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
+            if error=$(${BIN_DIR}/oc exec ${PSQL_POD_NAME} -n ${OMS_NAMESPACE} -- /usr/bin/psql -d "host=${PSQL_HOST} port=5432 dbname=${DB_NAME} user=${ADMIN_USER} password=${ADMIN_PASSWORD} sslmode=require" -c "CREATE SCHEMA $SCHEMA_NAME;" 2>&1 ) ; then
                 log-output "INFO: Successfully created $SCHEMA_NAME in $DB_NAME on $PSQL_NAME" 
             else
                 log-output "FAILED: Unable to create schema $SCHEMA_NAME"
                 log-output "$error"
+                exit 1
             fi
         else
             log-output "INFO: Schema $SCHEMA_NAME already exists in database $DB_NAME"
@@ -571,6 +588,14 @@ EOF
 
     # Create OMEnvironment instance
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
+
+    if [[ $OPERATOR_NAME="ibm-oms-pro" ]]; then
+      export REPOSITORY="cp.icr.io/cp/ibm-oms-professional"
+      export TAG="10.0.2209.1-amd64"
+    else
+      export REPOSITORY="cp.icr.io/cp/ibm-oms-enterprise"
+      export TAG="10.0.2209.1-amd64"
+    fi
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     cleanup_file ${WORKSPACE_DIR}/omenvironment.yaml
     cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
@@ -583,6 +608,8 @@ metadata:
     apps.oms.ibm.com/dbvendor-install-driver: "true"
     apps.oms.ibm.com/dbvendor-auto-transform: "true"
     apps.oms.ibm.com/dbvendor-driver-url: "https://jdbc.postgresql.org/download/postgresql-42.2.27.jre7.jar"
+    apps.oms.ibm.com/activemq-install-driver: 'yes'
+    apps.oms.ibm.com/activemq-driver-url: "https://repo1.maven.org/maven2/org/apache/activemq/activemq-all/5.16.0/activemq-all-5.16.0.jar"  
 spec:
   license:
     accept: true
@@ -600,7 +627,7 @@ spec:
       port: 5432
       schema: ${SCHEMA_NAME}
       secure: true
-      user: azureuser
+      user: ${ADMIN_USER}
   dataManagement:
     mode: create
   storage:
@@ -643,19 +670,19 @@ spec:
     replicaCount: 1
   image:
     oms:
-      tag: 10.0.2209.1-amd64
-      repository: cp.icr.io/cp/ibm-oms-professional
+      tag: ${TAG}
+      repository: ${REPOSITORY}
     orderHub:
       base:
-        tag: 10.0.2209.1-amd64
-        repository: cp.icr.io/cp/ibm-oms-professional
+        tag: ${TAG}
+        repository: ${REPOSITORY}
       extn:
-        tag: 10.0.2209.1-amd64
-        repository: cp.icr.io/cp/ibm-oms-professional
+        tag: ${TAG}
+        repository: ${REPOSITORY}
     orderService:
       imageName: orderservice
-      repository: cp.icr.io/cp/ibm-oms-professional
-      tag: 10.0.2209.1-amd64
+      repository: ${REPOSITORY}
+      tag: ${TAG}
     imagePullSecrets:
       - name: ibm-entitlement-key
   networkPolicy:
@@ -723,10 +750,13 @@ spec:
         vendor: websphere
   serviceAccount: default
   upgradeStrategy: RollingUpdate
-  customerOverrides:
-      - groupName: BaseProperties
-        propertyList:
-          yfs.yfs.ssi.enabled: N
+  serverProperties:
+    customerOverrides:
+        - groupName: BaseProperties
+          propertyList:
+            yfs.yfs.ssi.enabled: N
+            yfs.api.security.enabled: Y
+            yfs.api.security.token.enabled: Y
 EOF
     if error=$(${BIN_DIR}/oc create -f ${WORKSPACE_DIR}/omenvironment.yaml 2>&1) ; then
         log-output "INFO: Successfully installed OMEnvironment instance"
@@ -740,7 +770,7 @@ EOF
     log-output "INFO: Using existing OMEnvironment instance ${OM_INSTANCE_NAME}"
   fi
 
-  # Wait for isntance to be created
+  # Wait for instance to be created
   count=0
   while [[ $(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[] | select(.type=="OMEnvironmentAvailable").status') != "True" ]]; do
       current_status=$(${BIN_DIR}/oc get OMEnvironment -n ${OMS_NAMESPACE} ${OM_INSTANCE_NAME} -o json | jq -r '.status.conditions[].reason')
@@ -753,8 +783,12 @@ EOF
           exit 1
       fi
   done
+
+  # Sleep to allow pods to finish starting up
+  log-output "INFO: Sleeping for 3 minutes to allow pods to finish starting"
+  sleep 180
 else
     log-output "INFO: License not accepted. Manually create instance"
 fi
 
-#### Patch OMEnvironment to change data management to upgrade from create
+log-output "INFO: Completed"

@@ -110,6 +110,27 @@
                 "description": "Namespace for the Sterling OMS application"
             }
         },
+        "omInstanceName": {
+            "type": "string",
+            "defaultValue": "oms-instance",
+            "metadata": {
+                "description": "Name of the instance to be created"
+            }
+        },
+        "dbName": {
+            "type": "string",
+            "defaultValue": "oms",
+            "metadata": {
+                "description": "Name of the database to be created"
+            }
+        },
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin username for database"
+            }
+        },
         "adminPassword": {
             "type": "secureString",
             "metadata": {
@@ -121,6 +142,13 @@
             "defaultValue": "icr.io/cpopen/ibm-oms-pro-case-catalog:v1.0",
             "metadata": {
                 "description": "Sterling OMS Image"
+            }
+        },
+        "createACR": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create secret for private registry."
             }
         },
         "registryName": {
@@ -211,12 +239,24 @@
                         "value": "[parameters('omsNamespace')]"
                     },
                     {
+                        "name": "OM_INSTANCE_NAME",
+                        "value": "[parameters('omInstanceName')]"
+                    },
+                    {
                         "name": "VNET_NAME",
                         "value": "[parameters('vnetName')]"
                     },
                     {
+                        "name": "ADMIN_USER",
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    {
                         "name": "ADMIN_PASSWORD",
                         "secureValue": "[parameters('adminPassword')]"
+                    },
+                    {
+                        "name": "CREATE_ACR",
+                        "value": "[parameters('createACR')]"
                     },
                     {
                         "name": "ACR_NAME",
@@ -247,6 +287,10 @@
                         "value": "[parameters('psql-host')]"
                     },
                     {
+                        "name": "DB_NAME",
+                        "value": "[parameters('dbName')]"
+                    },
+                    {
                         "name": "LICENSE",
                         "value": "[parameters('acceptLicense')]"
                     }
@@ -255,7 +299,7 @@
                 "supportingScriptUris": [
                     "[uri(variables('baseUrl'),'common/scripts/common.sh')]"
                 ],
-                "timeout": "PT90M",
+                "timeout": "PT120M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
