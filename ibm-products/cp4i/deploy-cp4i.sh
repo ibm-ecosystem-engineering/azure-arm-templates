@@ -32,6 +32,8 @@ if [[ -z $CLUSTER_SCOPED ]]; then CLUSTER_SCOPED="false"; fi
 if [[ -z $REPLICAS ]]; then REPLICAS="1"; fi
 if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="ocs-storagecluster-cephfs"; fi
 if [[ -z $INSTANCE_NAMESPACE ]]; then export INSTANCE_NAMESPACE=$NAMESPACE; fi
+if [[ -z $VERSION ]]; then export VERSION="2022.2.1"; fi
+if [[ -z $LICENSE_ID ]]; then export LICENSE_ID="L-RJON-CD3JKX"; fi
 
 ######
 # Create working directories
@@ -678,12 +680,14 @@ metadata:
   name: ${INSTANCE_NAMESPACE}-navigator
   namespace: ${INSTANCE_NAMESPACE}
 spec:
+  requestIbmServices:
+    licensing: true
   license:
     accept: true
-    license: L-RJON-CJR2RX
+    license: ${LICENSE_ID}
   mqDashboard: true
   replicas: ${REPLICAS}
-  version: 2022.4.1
+  version: ${VERSION}
   storage:
     class: ${STORAGE_CLASS}
 EOF
