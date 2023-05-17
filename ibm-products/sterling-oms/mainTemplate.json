@@ -964,20 +964,16 @@
         },
         "aroClusterURL": {
             "type": "string",
-            "value": "[concat('https://console-openshift-console.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/')]"
+            "value": "[uri(concat('https://console-openshift-console.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/'),'')]"
         },
-        "aroClusterUsername": {
-            "type": "string",
-            "value": "kubeadmin"
-        },
-        "aroClusterPassword": {
+        "aroClusterCredentials": {
             "type": "string",
             "value": "Use \"az aro list-credentials -g resourceGroup -n clusterName\" to obtain credentials"
         },
         "orderHubURL": {
             "type": "string",
             "condition": "[equals(parameters('acceptLicense'),'accept')]",
-            "value": "[concat('https://orderhub-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io/order-management')]"
+            "value": "[uri(concat('https://orderhub-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io'),'/order-management')]"
         },
         "developerVMName": {
             "type": "string",

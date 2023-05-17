@@ -317,7 +317,7 @@
 						"name": "dbVMSize",
 						"type": "Microsoft.Compute.SizeSelector",
 						"label": "Database VM Size",
-						"toolTip": "",
+						"toolTip": "Database server size",
 						"recommendedSizes": [
 						  "Standard_E4ds_v4",
 						  "Standard_E16ds_v4",
@@ -592,7 +592,6 @@
 						"name": "adminUserName",
 						"type": "Microsoft.Compute.UserNameTextBox",
 						"label": "Admin Username",
-						"defaultValue": "azureuser",
 						"toolTip": "Administrator username for deployed VMs and database",
 						"constraints": {
 						  "required": true,
@@ -681,7 +680,7 @@
 			"workerCount": "[steps('openshift').workerCount]",
 			"omsNamespace": "[steps('sterling').omsNamespace]",
 			"omsEdition": "[steps('sterling').omsEdition]",
-			"omsInstanceName": "[steps('sterling').omsInstanceName]",
+			"omInstanceName": "[steps('sterling').omsInstanceName]",
 			"dbName": "[steps('sterling').dbName]",
 			"deployACR": "[steps('sterling').createACR]",
 			"deployDevVM": "[steps('sterling').createDevVM]",
