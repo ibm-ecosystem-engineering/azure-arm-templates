@@ -35,7 +35,7 @@
                 "toolTip": "Select the ARO cluster to use. The list of clusters depends upon the chosen resource group.",
                 "constraints": {
                     "allowedValues": "[map(basics('clustersApi').value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.name, '\"}')))]",
-                    "required": true
+                    "required": true    
                 },
                 "visible": true
             }
@@ -77,34 +77,16 @@
 						"name": "cp4iVersion",
 						"type": "Microsoft.Common.DropDown",
 						"label": "Cloud Pak for Integration Version",
-						"defaultValue": "2022.2.1",
-						"toolTip": "Only a single version is currently available.",
+						"toolTip": "The version and license to be used for the installation. Refer to above link for details.",
 						"constraints": {
 						  "allowedValues": [
 							{
-							  "label": "2022.2.1",
-							  "value": "2022.2.1"
-							}
-						  ],
-						  "required": true
-						},
-						"visible": true
-					},
-					{
-						"name": "cp4iLicense",
-						"type": "Microsoft.Common.DropDown",
-						"label": "Cloud Pak for Integration License",
-						"defaultValue": "L-RJON-CD3JKX",
-						"toolTip": "The license to be used for the installation. Refer to above link for details.",
-						"constraints": {
-						  "allowedValues": [
-							{
-							  "label": "Full License (L-RJON-CD3JKX)",
-							  "value": "L-RJON-CD3JKX"
+							  "label": "IBM Cloud Pak for Integration 2022.2.1 (L-RJON-CD3JKX)",
+							  "value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CD3JKX\"}')]"
 							},
 							{
-								"label": "Reserved or limited License (L-RJON-CD3JJU)",
-								"value": "L-RJON-CD3JJU"
+								"label": "IBM Cloud Pak for Integration Reserved 2022.2.1 (L-RJON-CJR2WN)",
+								"value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CJR2WN\"}']"
 							}
 						  ],
 						  "required": true
@@ -177,8 +159,8 @@
             "location": "[location()]",
             "ibmEntitlementKey": "[steps('cp4i').ibmEntitlementKey]",
             "acceptLicense": "[steps('cp4i').acceptLicense]",
-			"cp4iVersion": "[steps('cp4i').cp4iVersion]",
-			"cp4iLicense": "[steps('cp4i').cp4iLicense]",
+			"cp4iVersion": "[steps('cp4i').cp4iVersion.version]",
+			"cp4iLicense": "[steps('cp4i').cp4iVersion.license]",
 			"namespace": "[steps('cp4i').nameSpace]",
             "storageClass": "[steps('cp4i').storageClass]"
          }
