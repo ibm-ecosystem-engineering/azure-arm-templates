@@ -43,7 +43,7 @@ log-output "INFO: Instance namespace is set to : $INSTANCE_NAMESPACE"
 log-output "INFO: Storage class for instance is set to : $STORAGE_CLASS"
 log-output "INFO: Replicas for instance is set to : $REPLICAS"
 log-output "INFO: Operator cluster scoped is : $CLUSTER_SCOPED"
-log-output "INFO: Workspace is set to : $WORKSPACE"
+log-output "INFO: Workspace directory is set to : $WORKSPACE_DIR"
 log-output "INFO: Binary directory is set to : $BIN_DIR"
 log-output "INFO: Temp directory is set to : $TMP_DIR"
 
