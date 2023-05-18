@@ -23,6 +23,20 @@
                 "description": "Entitlement key for IBM container registry"
             }
         },
+        "cp4iVersion": {
+            "type": "string",
+            "defaultValue": "2022.2.1",
+            "metadata": {
+                "description": "Version of CP4I to be installed"
+            }
+        },
+        "cp4iLicense": {
+            "type": "string",
+            "defaultValue": "L-RJON-CD3JKX",
+            "metadata": {
+                "description": "License to be used for CP4I installation"
+            }
+        },
         "acceptLicense": {
             "type": "string",
             "defaultValue": "decline",
@@ -80,6 +94,13 @@
             "type": "string",
             "metadata": {
                 "description": "Name of the ARO cluster"
+            }
+        },
+        "namespace": {
+            "type": "string",
+            "defaultValue": "cp4i",
+            "metadata": {
+                "description": "Namespace for CP4I instance"
             }
         },
         "branch": {
@@ -140,15 +161,27 @@
                         "secureValue": "[parameters('ibmEntitlementKey')]"
                     },
                     {
+                        "name": "VERSION",
+                        "value": "[parameters('cp4iVersion')]"
+                    },
+                    {
+                        "name": "LICENSE_ID",
+                        "value": "[parameters('cp4iLicense')]"
+                    },
+                    {
                         "name": "LICENSE",
                         "value": "[parameters('acceptLicense')]"
+                    },
+                    {
+                        "name": "NAMESPACE",
+                        "value": "[parameters('namespace')]"
                     }
                 ],
                 "primaryScriptUri": "[uri(variables('baseUrl'),concat(parameters('branch'),'/ibm-products/cp4i/deploy-cp4i.sh'))]",
                 "supportingScriptUris": [
                     "[uri(variables('baseUrl'),concat(parameters('branch'),'/common/scripts/common.sh'))]"
                 ],
-                "timeout": "PT90M",
+                "timeout": "PT120M",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },

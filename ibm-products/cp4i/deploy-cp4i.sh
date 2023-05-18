@@ -14,9 +14,6 @@ if [[ -n $ENV_VAR_NOT_SET ]]; then
     exit 1
 fi
 
-log-output "INFO: ARO Cluster is set to : $ARO_CLUSTER"
-log-output "INFO: Resource group is set to : $RESOURCE_GROUP"
-
 ######
 # Set defaults
 if [[ -z $LICENSE ]]; then LICENSE="decline"; fi
@@ -34,6 +31,21 @@ if [[ -z $STORAGE_CLASS ]]; then STORAGE_CLASS="ocs-storagecluster-cephfs"; fi
 if [[ -z $INSTANCE_NAMESPACE ]]; then export INSTANCE_NAMESPACE=$NAMESPACE; fi
 if [[ -z $VERSION ]]; then export VERSION="2022.2.1"; fi
 if [[ -z $LICENSE_ID ]]; then export LICENSE_ID="L-RJON-CD3JKX"; fi
+
+# Log values set
+log-output "INFO: ARO Cluster is set to : $ARO_CLUSTER"
+log-output "INFO: Resource group is set to : $RESOURCE_GROUP"
+log-output "INFO: License acceptance is set to : $LICENSE"
+log-output "INFO: Software version is set to : $VERSION"
+log-output "INFO: Software license is set to : $LICENSE_ID"
+log-output "INFO: Namespace is set to : $NAMESPACE"
+log-output "INFO: Instance namespace is set to : $INSTANCE_NAMESPACE"
+log-output "INFO: Storage class for instance is set to : $STORAGE_CLASS"
+log-output "INFO: Replicas for instance is set to : $REPLICAS"
+log-output "INFO: Operator cluster scoped is : $CLUSTER_SCOPED"
+log-output "INFO: Workspace is set to : $WORKSPACE"
+log-output "INFO: Binary directory is set to : $BIN_DIR"
+log-output "INFO: Temp directory is set to : $TMP_DIR"
 
 ######
 # Create working directories
@@ -86,7 +98,7 @@ fi
 #######
 # Create entitlement key secret for image pull if required
 if [[ -z $IBM_ENTITLEMENT_KEY ]]; then
-    log-output "INFO: Not setting IBM Entitlement key"
+    log-output "INFO: Now setting IBM Entitlement key"
     if [[ $LICENSE == "accept" ]]; then
         log-output "ERROR: License accepted but entitlement key not provided"
         exit 1
