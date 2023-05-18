@@ -74,19 +74,19 @@
 						}
 					},
 					{
-						"name": "cp4iVersion",
+						"name": "cp4iEdition",
 						"type": "Microsoft.Common.DropDown",
 						"label": "Cloud Pak for Integration Version",
 						"toolTip": "The version and license to be used for the installation. Refer to above link for details.",
 						"constraints": {
 						  "allowedValues": [
 							{
-							  "label": "IBM Cloud Pak for Integration 2022.2.1 (L-RJON-CD3JKX)",
-							  "value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CD3JKX\"}')]"
+							  	"label": "IBM Cloud Pak for Integration 2022.2.1 (L-RJON-CD3JKX)",
+							  	"value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CD3JKX\"}')]"
 							},
 							{
 								"label": "IBM Cloud Pak for Integration Reserved 2022.2.1 (L-RJON-CJR2WN)",
-								"value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CJR2WN\"}']"
+								"value": "[parse('{\"version\":\"2022.2.1\",\"license\":\"L-RJON-CJR2WN\"}')]"
 							}
 						  ],
 						  "required": true
@@ -159,8 +159,8 @@
             "location": "[location()]",
             "ibmEntitlementKey": "[steps('cp4i').ibmEntitlementKey]",
             "acceptLicense": "[steps('cp4i').acceptLicense]",
-			"cp4iVersion": "[steps('cp4i').cp4iVersion.version]",
-			"cp4iLicense": "[steps('cp4i').cp4iVersion.license]",
+			"cp4iVersion": "[steps('cp4i').cp4iEdition.version ]",
+			"cp4iLicense": "[steps('cp4i').cp4iEdition.license ]",
 			"namespace": "[steps('cp4i').nameSpace]",
             "storageClass": "[steps('cp4i').storageClass]"
          }

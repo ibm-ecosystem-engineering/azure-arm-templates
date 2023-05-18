@@ -25,21 +25,12 @@
         },
         "cp4iVersion": {
             "type": "string",
-            "defaultValue": "2022.2.1",
-            "allowedValues": [
-                "2022.2.1"
-            ],
             "metadata": {
                 "description": "Version of CP4I to be installed"
             }
         },
         "cp4iLicense": {
             "type": "string",
-            "defaultValue": "L-RJON-CD3JKX",
-            "allowedValues": [
-                "L-RJON-CD3JKX",
-                "L-RJON-CD3JJU"
-            ],
             "metadata": {
                 "description": "License to be used for CP4I installation"
             }
