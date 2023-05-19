@@ -667,7 +667,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployDRBastion')]",
+            "condition": "[parameters('deployNode1')]",
             "name": "sp-node-1",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
@@ -675,12 +675,144 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "dr"
+                        "value": "node1"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('primaryVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "Standard"
+                    },
+                    "vmSize": {
+                        "value": "[parameters('vmSize')]"
+                    },
+                    "vmDiskType": {
+                        "value": "[parameters('vmDiskType')]"
+                    },
+                    "vmZone": {
+                        "value": "1"
+                    },
+                    "vmOSVersion": {
+                        "value": "[parameters('vmOSVersion')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "/ibm-products/safer-payments/node/scripts/"
+                    },
+                    "scriptName": {
+                        "value": "install-sp-rhel.sh"
+                    },
+                    "scriptParameters": {
+                        "value": "primary"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployNode2')]",
+            "name": "sp-node-2",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "node2"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('primaryVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "Standard"
+                    },
+                    "vmSize": {
+                        "value": "[parameters('vmSize')]"
+                    },
+                    "vmDiskType": {
+                        "value": "[parameters('vmDiskType')]"
+                    },
+                    "vmZone": {
+                        "value": "2"
+                    },
+                    "vmOSVersion": {
+                        "value": "[parameters('vmOSVersion')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "/ibm-products/safer-payments/node/scripts/"
+                    },
+                    "scriptName": {
+                        "value": "install-sp-rhel.sh"
+                    },
+                    "scriptParameters": {
+                        "value": "ha"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployNode3')]",
+            "name": "sp-node-3",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "node3"
                     },
                     "location": {
                         "value": "[parameters('drRegion')]"
@@ -688,8 +820,110 @@
                     "vnetName": {
                         "value": "[parameters('drVnetName')]"
                     },
-                    "bastionSubnetCIDR": {
-                        "value": "[parameters('drBastionSubnetCidr')]"
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "Standard"
+                    },
+                    "vmSize": {
+                        "value": "[parameters('vmSize')]"
+                    },
+                    "vmDiskType": {
+                        "value": "[parameters('vmDiskType')]"
+                    },
+                    "vmZone": {
+                        "value": "1"
+                    },
+                    "vmOSVersion": {
+                        "value": "[parameters('vmOSVersion')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "/ibm-products/safer-payments/node/scripts/"
+                    },
+                    "scriptName": {
+                        "value": "install-sp-rhel.sh"
+                    },
+                    "scriptParameters": {
+                        "value": "dr"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployNode4')]",
+            "name": "sp-node-4",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "node4"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "Standard"
+                    },
+                    "vmSize": {
+                        "value": "[parameters('vmSize')]"
+                    },
+                    "vmDiskType": {
+                        "value": "[parameters('vmDiskType')]"
+                    },
+                    "vmZone": {
+                        "value": "2"
+                    },
+                    "vmOSVersion": {
+                        "value": "[parameters('vmOSVersion')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "/ibm-products/safer-payments/node/scripts/"
+                    },
+                    "scriptName": {
+                        "value": "install-sp-rhel.sh"
+                    },
+                    "scriptParameters": {
+                        "value": "standby"
                     }
                 }
             }
