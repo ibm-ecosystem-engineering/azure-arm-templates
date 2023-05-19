@@ -1,0 +1,698 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "primaryRegion": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Azure region for primary site"
+            }
+        },
+        "primaryVnetName": {
+            "type": "string",
+            "defaultValue": "primary-vnet",
+            "metadata": {
+                "description": "Primary region virtual network name"
+            }
+        },
+        "primaryVnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/20",
+            "metadata": {
+                "description": "Primary region virtual network address space"
+            }
+        },
+        "primaryVMSubnetName": {
+            "type": "string",
+            "defaultValue": "primary-vm-subnet",
+            "metadata": {
+                "description": "Primary region VM subnet name"
+            }
+        },
+        "primaryVMSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24",
+            "metadata": {
+                "description": "Primary region VM subnet address space"
+            }
+        },
+        "primaryEndpointSubnetName": {
+            "type": "string",
+            "defaultValue": "primary-endpoint-subnet",
+            "metadata": {
+                "description": "Primary region private endpoint subnet name"
+            }
+        },
+        "primaryEndpointSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.1.0/24",
+            "metadata": {
+                "description": "Primary region private endpoint subnet Cidr"
+            }
+        },
+        "primaryFirewallSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureFirewallSubnet",
+            "allowedValues": [
+                "AzureFirewallSubnet"
+            ],
+            "metadata": {
+                "description": "Primary region firewall subnet name"
+            }
+        },
+        "primaryFirewallSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.2.0/26",
+            "metadata": {
+                "description": "Primary region firewall subnet address space"
+            }
+        },
+        "primaryBastionSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.3.0/26",
+            "metadata": {
+                "description": "Primary region bastion subnet address space"
+            }
+        },
+        "deployPrimaryBastion": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary region bastion host"
+            }
+        },
+        "primaryNsgName": {
+            "type": "string",
+            "defaultValue": "primary-nsg",
+            "metadata": {
+                "description": "Name of the primary network security group"
+            }
+        },
+        "enablePrimaryDDoSProtection": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable DDoS network protection on public IP addresses in Primary region"
+            }
+        },
+        "drRegion": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure region for DR site"
+            }
+        },
+        "drVNetCIDR": {
+            "type": "string",
+            "defaultValue": "10.1.0.0/20",
+            "metadata": {
+                "description": "DR region virtual network address space"
+            }
+        },
+        "drVnetName": {
+            "type": "string",
+            "defaultValue": "dr-vnet",
+            "metadata": {
+                "description": "DR region virtual network name"
+            }
+        },
+        "drVMSubnetName": {
+            "type": "string",
+            "defaultValue": "dr-vm-subnet",
+            "metadata": {
+                "description": "DR region VM subnet name"
+            }
+        },
+        "drVMSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.0.0/24",
+            "metadata": {
+                "description": "DR region VM subnet address space"
+            }
+        },
+        "drEndpointSubnetName": {
+            "type": "string",
+            "defaultValue": "dr-endpoint-subnet",
+            "metadata": {
+                "description": "DR region private endpoint subnet name"
+            }
+        },
+        "drEndpointSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.1.0/24",
+            "metadata": {
+                "description": "DR region private endpoint subnet Cidr"
+            }
+        },
+        "drFirewallSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureFirewallSubnet",
+            "allowedValues": [
+                "AzureFirewallSubnet"
+            ],
+            "metadata": {
+                "description": "DR region firewall subnet name"
+            }
+        },
+        "drFirewallSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.2.0/26",
+            "metadata": {
+                "description": "DR region firewall subnet address space"
+            }
+        },
+        "drBastionSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.3.0/26",
+            "metadata": {
+                "description": "DR region bastion subnet address space"
+            }
+        },
+        "deployDRBastion": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR region bastion host"
+            }
+        },
+        "drNsgName": {
+            "type": "string",
+            "defaultValue": "dr-nsg",
+            "metadata": {
+                "description": "Name of the DR network security group"
+            }
+        },
+        "enableDRDDoSProtection": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable DDoS network protection on public IP addresses in DR region"
+            }
+        },
+        "deployNode1": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 1 VM"
+            }
+        },
+        "deployNode2": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 2 VM"
+            }
+        },
+        "deployNode3": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 3 VM (DR)"
+            }
+        },
+        "deployNode4": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 4 VM (DR)"
+            }
+        },
+        "adminUserName": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin user for created VMs"
+            }
+        },
+        "adminPassword": {
+            "type": "secureString",
+            "metadata": {
+                "description": "SSH Key or password for the Virtual Machine."
+            }
+        },
+        "authType": {
+            "type": "string",
+            "defaultValue": "sshPublicKey",
+            "allowedValues": [
+                "sshPublicKey",
+                "password"
+            ],
+            "metadata": {
+                "description": "Type of VM authentication. SSH Key or Password"
+            }
+        },
+        "securityType": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Standard",
+                "TrustedLaunch"
+            ],
+            "metadata": {
+                "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
+            }
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_D2s_v3",
+            "metadata": {
+                "description": "Size of Virtual Machine"
+            }
+        },
+        "vmDiskType": {
+            "type": "string",
+            "defaultValue": "Premium_LRS",
+            "allowedValues": [
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_LRS",
+                "StandardSSD_LRS",
+                "StandardSSD_ZRS",
+                "UltraSSD_LRS"
+            ],
+            "metadata": {
+                "description": "OS Disk type for Dev VM"
+            }
+        },
+        "vmOSVersion": {
+            "type": "string",
+            "defaultValue": "RHEL 8.6",
+            "allowedValues": [
+                "RHEL 8.6"
+            ],
+            "metadata": {
+                "description": "Operating system version"
+            }
+        },
+        "createPublicIP": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to indicate whether a public ip address should be created."
+            }
+        },
+        "node1ScriptParameters": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Parameters for setup script for Node 1"
+            }
+        },
+        "node2ScriptParameters": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Parameters for setup script for Node 2"
+            }
+        },
+        "node3ScriptParameters": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Parameters for setup script for Node 3"
+            }
+        },
+        "node4ScriptParameters": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Parameters for setup script for Node 4"
+            }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
+        }
+    },
+    "variables": {
+        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
+        "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
+        "deployId": "[substring(uniqueString(resourceGroup().id),1,5)]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('primaryVnetName')]",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('primaryNsgName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('primaryFirewallSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryFirewallSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('primaryFirewallSubnetCidr')]",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "[parameters('primaryEndpointSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryEndpointSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('primaryEndpointSubnetCidr')]",
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "[parameters('primaryVMSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryVMSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('primaryVMSubnetCidr')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('primaryNsgName'))]"
+                            },
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "enableDdosProtection": "[parameters('enablePrimaryDDoSProtection')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('drVnetName')]",
+            "location": "[parameters('drRegion')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('drNsgName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('drFirewallSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drFirewallSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('drFirewallSubnetCidr')]",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "[parameters('drEndpointSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drEndpointSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('drEndpointSubnetCidr')]",
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "[parameters('drVMSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drVMSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('drVMSubnetCidr')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('drNsgName'))]"
+                            },
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "enableDdosProtection": "[parameters('enableDRDDoSProtection')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('primaryNsgName')]",
+            "location": "[parameters('primaryRegion')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "AllowAnySSHInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('primaryNsgName'), 'AllowAnySSHInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    },
+                    {
+                        "name": "AllowAnyHTTPSInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('primaryNsgName'), 'AllowAnyHTTPSInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 110,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('drNsgName')]",
+            "location": "[parameters('drRegion')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "AllowAnySSHInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('drNsgName'), 'AllowAnySSHInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    },
+                    {
+                        "name": "AllowAnyHTTPSInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('drNsgName'), 'AllowAnyHTTPSInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 110,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2022-07-01",
+            "name": "[concat(parameters('primaryVnetName'),'/',parameters('primaryVnetName'),'-to-',parameters('drVnetName'),'-peering-link')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "peeringState": "Connected",
+                "peeringSyncLevel": "FullyInSync",
+                "remoteVirtualNetwork": {
+                    "id": "[concat('/subscriptions/',subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Network/virtualNetworks/',parameters('drVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "doNotVerifyRemoteGateways": false,
+                "remoteAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                },
+                "remoteVirtualNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                }
+            }  
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2022-07-01",
+            "name": "[concat(parameters('drVnetName'),'/',parameters('drVnetName'),'-to-',parameters('primaryVnetName'),'-peering-link')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "peeringState": "Connected",
+                "peeringSyncLevel": "FullyInSync",
+                "remoteVirtualNetwork": {
+                    "id": "[concat('/subscriptions/',subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Network/virtualNetworks/',parameters('primaryVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "doNotVerifyRemoteGateways": false,
+                "remoteAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                },
+                "remoteVirtualNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                }
+            }  
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryBastion')]",
+            "name": "primary-bastion",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "bastionSubnetCIDR": {
+                        "value": "[parameters('primaryBastionSubnetCidr')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployDRBastion')]",
+            "name": "dr-bastion",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "bastionSubnetCIDR": {
+                        "value": "[parameters('drBastionSubnetCidr')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployDRBastion')]",
+            "name": "sp-node-1",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "bastionSubnetCIDR": {
+                        "value": "[parameters('drBastionSubnetCidr')]"
+                    }
+                }
+            }
+        }
+    ]
+}
