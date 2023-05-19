@@ -75,6 +75,16 @@
                 "description": "Primary region bastion subnet address space"
             }
         },
+        "primaryBastionSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureBastionSubnet",
+            "allowedValues": [
+                "AzureBastionSubnet"
+            ],
+            "metadata": {
+                "description": "Name of the primary bastion subnet. Do not change from default."
+            }
+        },
         "deployPrimaryBastion": {
             "type": "bool",
             "defaultValue": true,
@@ -159,6 +169,16 @@
             "defaultValue": "10.1.2.0/26",
             "metadata": {
                 "description": "DR region firewall subnet address space"
+            }
+        },
+        "drBastionSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureBastionSubnet",
+            "allowedValues": [
+                "AzureBastionSubnet"
+            ],
+            "metadata": {
+                "description": "Name of the DR bastion subnet. Do not change from default."
             }
         },
         "drBastionSubnetCidr": {
@@ -615,7 +635,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/bastion/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -630,6 +650,9 @@
                     },
                     "bastionSubnetCIDR": {
                         "value": "[parameters('primaryBastionSubnetCidr')]"
+                    },
+                    "bastionSubnetName": {
+                        "value": "[parameters('primaryBastionSubnetName')]"
                     }
                 }
             }
@@ -645,7 +668,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/networking/bastion/azuredeploy.json'))]",
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/bastion/azuredeploy.json'))]",
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
@@ -660,6 +683,9 @@
                     },
                     "bastionSubnetCIDR": {
                         "value": "[parameters('drBastionSubnetCidr')]"
+                    },
+                    "bastionSubnetName": {
+                        "value": "[parameters('drBastionSubnetName')]"
                     }
                 }
             }
