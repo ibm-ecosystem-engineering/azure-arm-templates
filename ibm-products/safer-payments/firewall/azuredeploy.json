@@ -1,0 +1,120 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "namePrefix": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix for resource names"
+            }
+        },
+        "vnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "Virtual network for bastion subnet"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Azure location for resources"
+            }
+        },
+        "primaryFirewallSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureFirewallSubnet",
+            "allowedValues": [
+                "AzureFirewallSubnet"
+            ],
+            "metadata": {
+                "description": "Firewall subnet name"
+            }
+        },
+        "primaryFirewallSubnetCidr": {
+            "type": "string",
+            "metadata": {
+                "description": "Firewall subnet address space"
+            }
+        },
+        "createSubnet": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to use an existing subnet or create a new one."
+            }
+        }
+    },
+    "variables": {
+        "firewallName": "[concat(parameters('namePrefix'),'-firewall')]",
+        "publicIPName": "[concat(parameters('namePrefix'),'-pip')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/azureFirewalls",
+            "apiVersion": "2022-11-01",
+            "name": "[variables('firewallName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+            ],
+            "properties": {
+                "sku": {
+                    "name": "AZFW_VNet",
+                    "tier": "Standard"
+                },
+                "threatIntelMode": "Alert",
+                "additionalProperties": {},
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig",
+                        "id": "[concat(resourceId('Microsoft.Network/azureFirewalls', variables('firewallName')), '/azureFirewallIpConfigurations/ipConfig')]",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AzureFirewallSubnet')]"
+                            }
+                        }
+                    }
+                ],
+                "networkRuleCollections": [],
+                "applicationRuleCollections": [],
+                "natRuleCollections": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2022-11-01",
+            "name": "[variables('publicIPName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "ipAddress": "13.82.233.32",
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4,
+                "ipTags": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2022-11-01",
+            "condition": "[parameters('createSubnet')]",
+            "name": "[concat(parameters('vnetName'), '/',parameters('primaryFirewallSubnetName'))]",
+            "properties": {
+                "addressPrefix": "[parameters('primaryFirewallSubnetCidr')]",
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        }
+    ]
+}
