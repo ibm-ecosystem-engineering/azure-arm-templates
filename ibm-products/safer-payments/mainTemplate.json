@@ -68,6 +68,13 @@
                 "description": "Primary region firewall subnet address space"
             }
         },
+        "deployPrimaryFirewall": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary region firewall"
+            }
+        },
         "primaryBastionSubnetCidr": {
             "type": "string",
             "defaultValue": "10.0.3.0/26",
@@ -171,6 +178,13 @@
                 "description": "DR region firewall subnet address space"
             }
         },
+        "deployDRFirewall": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR region firewall"
+            }
+        },
         "drBastionSubnetName": {
             "type": "string",
             "defaultValue": "AzureBastionSubnet",
@@ -202,7 +216,7 @@
                 "description": "Name of the DR network security group"
             }
         },
-        "enableDRDDoSProtection": {
+        "enableDrDDoSProtection": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
@@ -304,39 +318,71 @@
                 "description": "Operating system version"
             }
         },
-        "createPublicIP": {
+        "createVMPublicIP": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
-                "description": "Flag to indicate whether a public ip address should be created."
+                "description": "Flag to indicate whether a public ip address should be created for each node."
             }
         },
         "node1ScriptParameters": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "primary",
             "metadata": {
                 "description": "Parameters for setup script for Node 1"
             }
         },
         "node2ScriptParameters": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "ha",
             "metadata": {
                 "description": "Parameters for setup script for Node 2"
             }
         },
         "node3ScriptParameters": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "dr",
             "metadata": {
                 "description": "Parameters for setup script for Node 3"
             }
         },
         "node4ScriptParameters": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "standby",
             "metadata": {
                 "description": "Parameters for setup script for Node 4"
+            }
+        },
+        "node1AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "1",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 1"
+            }
+        },
+        "node2AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "2",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 2"
+            }
+        },
+        "node3AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "1",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 3"
+            }
+        },
+        "node4AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "2",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 4"
             }
         },
         "branch": {
@@ -350,6 +396,7 @@
     "variables": {
         "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
         "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
+        "deployScript": "install-sp-rhel.sh",
         "deployId": "[substring(uniqueString(resourceGroup().id),1,5)]"
     },
     "resources": [
@@ -368,17 +415,6 @@
                     ]
                 },
                 "subnets": [
-                    {
-                        "name": "[parameters('primaryFirewallSubnetName')]",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryFirewallSubnetName'))]",
-                        "properties": {
-                            "addressPrefix": "[parameters('primaryFirewallSubnetCidr')]",
-                            "delegations": [],
-                            "privateEndpointNetworkPolicies": "Disabled",
-                            "privateLinkServiceNetworkPolicies": "Enabled"
-                        },
-                        "type": "Microsoft.Network/virtualNetworks/subnets"
-                    },
                     {
                         "name": "[parameters('primaryEndpointSubnetName')]",
                         "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryEndpointSubnetName'))]",
@@ -426,17 +462,6 @@
                 },
                 "subnets": [
                     {
-                        "name": "[parameters('drFirewallSubnetName')]",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drFirewallSubnetName'))]",
-                        "properties": {
-                            "addressPrefix": "[parameters('drFirewallSubnetCidr')]",
-                            "delegations": [],
-                            "privateEndpointNetworkPolicies": "Disabled",
-                            "privateLinkServiceNetworkPolicies": "Enabled"
-                        },
-                        "type": "Microsoft.Network/virtualNetworks/subnets"
-                    },
-                    {
                         "name": "[parameters('drEndpointSubnetName')]",
                         "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drEndpointSubnetName'))]",
                         "properties": {
@@ -463,7 +488,7 @@
                         "type": "Microsoft.Network/virtualNetworks/subnets"
                     }
                 ],
-                "enableDdosProtection": "[parameters('enableDRDDoSProtection')]"
+                "enableDdosProtection": "[parameters('enableDrDDoSProtection')]"
             }
         },
         {
@@ -693,6 +718,72 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryFirewall')]",
+            "name": "primary-firewall",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/firewall/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "firewallSubnetCIDR": {
+                        "value": "[parameters('primaryFirewallSubnetCidr')]"
+                    },
+                    "firewallSubnetName": {
+                        "value": "[parameters('primaryFirewallSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployDRFirewall')]",
+            "name": "dr-firewall",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/firewall/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "firewallSubnetCIDR": {
+                        "value": "[parameters('drFirewallSubnetCidr')]"
+                    },
+                    "firewallSubnetName": {
+                        "value": "[parameters('drFirewallSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
             "condition": "[parameters('deployNode1')]",
             "name": "sp-node-1",
             "dependsOn": [
@@ -727,7 +818,7 @@
                         "value": "[parameters('authType')]"
                     },
                     "securityType": {
-                        "value": "Standard"
+                        "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
                         "value": "[parameters('vmSize')]"
@@ -736,22 +827,25 @@
                         "value": "[parameters('vmDiskType')]"
                     },
                     "vmZone": {
-                        "value": "1"
+                        "value": "[parameters('node1AvailabilityZone')]"
                     },
                     "vmOSVersion": {
                         "value": "[parameters('vmOSVersion')]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
                     },
                     "branch": {
                         "value": "[parameters('branch')]"
                     },
                     "scriptOffset": {
-                        "value": "/ibm-products/safer-payments/node/scripts/"
+                        "value": "[variables('scriptOffset')]"
                     },
                     "scriptName": {
-                        "value": "install-sp-rhel.sh"
+                        "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "primary"
+                        "value": "[parameters('node1ScriptParameters')]"
                     }
                 }
             }
@@ -793,7 +887,7 @@
                         "value": "[parameters('authType')]"
                     },
                     "securityType": {
-                        "value": "Standard"
+                        "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
                         "value": "[parameters('vmSize')]"
@@ -802,22 +896,25 @@
                         "value": "[parameters('vmDiskType')]"
                     },
                     "vmZone": {
-                        "value": "2"
+                        "value": "[parameters('node2AvailabilityZone')]"
                     },
                     "vmOSVersion": {
                         "value": "[parameters('vmOSVersion')]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
                     },
                     "branch": {
                         "value": "[parameters('branch')]"
                     },
                     "scriptOffset": {
-                        "value": "/ibm-products/safer-payments/node/scripts/"
+                        "value": "[variables('scriptOffset')]"
                     },
                     "scriptName": {
-                        "value": "install-sp-rhel.sh"
+                        "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "ha"
+                        "value": "[parameters('node2ScriptParameters')]"
                     }
                 }
             }
@@ -859,7 +956,7 @@
                         "value": "[parameters('authType')]"
                     },
                     "securityType": {
-                        "value": "Standard"
+                        "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
                         "value": "[parameters('vmSize')]"
@@ -868,22 +965,25 @@
                         "value": "[parameters('vmDiskType')]"
                     },
                     "vmZone": {
-                        "value": "1"
+                        "value": "[parameters('node3AvailabilityZone')]"
                     },
                     "vmOSVersion": {
                         "value": "[parameters('vmOSVersion')]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
                     },
                     "branch": {
                         "value": "[parameters('branch')]"
                     },
                     "scriptOffset": {
-                        "value": "/ibm-products/safer-payments/node/scripts/"
+                        "value": "[variables('scriptOffset')]"
                     },
                     "scriptName": {
-                        "value": "install-sp-rhel.sh"
+                        "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "dr"
+                        "value": "[parameters('node3ScriptParameters')]"
                     }
                 }
             }
@@ -925,7 +1025,7 @@
                         "value": "[parameters('authType')]"
                     },
                     "securityType": {
-                        "value": "Standard"
+                        "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
                         "value": "[parameters('vmSize')]"
@@ -934,22 +1034,25 @@
                         "value": "[parameters('vmDiskType')]"
                     },
                     "vmZone": {
-                        "value": "2"
+                        "value": "[parameters('node4AvailabilityZone')]"
                     },
                     "vmOSVersion": {
                         "value": "[parameters('vmOSVersion')]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
                     },
                     "branch": {
                         "value": "[parameters('branch')]"
                     },
                     "scriptOffset": {
-                        "value": "/ibm-products/safer-payments/node/scripts/"
+                        "value": "[variables('scriptOffset')]"
                     },
                     "scriptName": {
-                        "value": "install-sp-rhel.sh"
+                        "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "standby"
+                        "value": "[parameters('node4ScriptParameters')]"
                     }
                 }
             }
