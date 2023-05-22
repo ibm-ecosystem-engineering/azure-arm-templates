@@ -1,0 +1,203 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "comments": "Creates an API management service with private endpoint"
+    },
+    "parameters": {
+      "namePrefix": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix for resource names"
+            }
+      },
+      "createSubnet": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create subnet or use existing"
+            }
+      },
+      "vnetName": {
+            "type": "string",
+            "defaultValue": "vnet",
+            "metadata": {
+                "description": "Name of the virtual network"
+            }
+      },
+      "subnetName": {
+            "type": "string",
+            "defaultValue": "api-mgmt-subnet",
+            "metadata": {
+                "description": "Name of the subnet to connect service to"
+            }
+      },
+      "subnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/26",
+            "metadata": {
+                "description": "Subnet address space"
+            }
+      },
+      "publisherEmail": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+            "description": "The email address of the owner of the service"
+            }
+      },
+      "publisherName": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+                "description": "The name of the owner of the service"
+            }
+      },
+      "sku": {
+            "type": "string",
+            "defaultValue": "Developer",
+            "allowedValues": [
+                "Developer",
+                "Standard",
+                "Premium"
+            ],
+            "metadata": {
+                "description": "The pricing tier of this API Management service"
+            }
+      },
+      "skuCount": {
+            "type": "int",
+            "defaultValue": 1,
+            "allowedValues": [
+                1,
+                2
+            ],
+            "metadata": {
+                "description": "The instance size of this API Management service."
+            }
+      },
+      "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        }
+    },
+    "variables": {
+        "apiManagementServiceName": "[format('{0}apiservice{1}', parameters('namePrefix'), substring(uniqueString(resourceGroup().id),1,5))]",
+        "dnsLinkName": "[concat(parameters('namePrefix'),'-dnslink')]",
+        "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
+        "subnetId": "[concat(variables('vnetId'),'/subnets/',parameters('subnetName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2022-11-01",
+            "condition": "[parameters('createSubnet')]",
+            "name": "[concat(parameters('vnetName'), '/',parameters('subnetName'))]",
+            "properties": {
+                "addressPrefix": "[parameters('subnetCidr')]",
+                "delegations": [],
+                "serviceEndpoints": [
+                    {
+                        "service": "Microsoft.KeyVault",
+                        "locations": [
+                            "*"
+                        ]
+                    }
+                ],
+                "privateEndpointNetworkPolicies": "Enabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service",
+            "apiVersion": "2021-08-01",
+            "name": "[variables('apiManagementServiceName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+            ],
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "[parameters('sku')]",
+                "capacity": "[parameters('skuCount')]"
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "publisherEmail": "[parameters('publisherEmail')]",
+                "publisherName": "[parameters('publisherName')]",
+                "virtualNetworkType": "Internal",
+                "virtualNetworkConfiguration": {
+                    "subnetResourceId": "[variables('subnetId')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "azure-api.net",
+            "location": "global",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service', variables('apiManagementServiceName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+            ],
+            "resources": [
+                {
+                    "condition": true,                    
+                    "type": "A",
+                    "apiVersion": "2018-09-01",
+                    "name": "[variables('apiManagementServiceName')]",
+                    "location": "global",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateDnsZones', 'azure-api.net')]",
+                        "[resourceId('Microsoft.ApiManagement/service', variables('apiManagementServiceName'))]"
+                    ],
+                    "properties": {
+                        "ttl": 36000,
+                        "aRecords": [
+                            {
+                                "ipv4Address": "[reference(resourceId('Microsoft.ApiManagement/service', variables('apiManagementServiceName'))).privateIPAddresses[0]]"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "virtualNetworkLinks",
+                    "apiVersion": "2020-06-01",
+                    "name": "[variables('dnsLinkName')]",                    
+                    "location": "global",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateDnsZones', 'azure-api.net')]"
+                    ],
+                    "properties": {
+                        "registrationEnabled": true,
+                        "virtualNetwork": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                        }
+                    }
+                }
+            ],
+            "properties": {
+            }
+        }
+    ],
+    "outputs": {
+        "apiMgmtName": {
+            "type": "string",
+            "value": "[variables('apiManagementServiceName')]"
+        },
+        "apiMgmtGatewayURL": {
+            "type": "string",
+            "value": "[uri(concat('https://',variables('apiManagementServiceName'),'.azure-api.net'),'/')]"
+        },
+        "apiMgmtManagementURL": {
+            "type": "string",
+            "value": "[uri(concat('https://',variables('apiManagementServiceName'),'.management.azure-api.net'),'/')]"
+        }
+    }
+  }

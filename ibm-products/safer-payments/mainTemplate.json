@@ -37,20 +37,6 @@
                 "description": "Primary region VM subnet address space"
             }
         },
-        "primaryEndpointSubnetName": {
-            "type": "string",
-            "defaultValue": "primary-endpoint-subnet",
-            "metadata": {
-                "description": "Primary region private endpoint subnet name"
-            }
-        },
-        "primaryEndpointSubnetCidr": {
-            "type": "string",
-            "defaultValue": "10.0.1.0/24",
-            "metadata": {
-                "description": "Primary region private endpoint subnet Cidr"
-            }
-        },
         "primaryFirewallSubnetName": {
             "type": "string",
             "defaultValue": "AzureFirewallSubnet",
@@ -152,20 +138,6 @@
             "defaultValue": "10.1.0.0/24",
             "metadata": {
                 "description": "DR region VM subnet address space"
-            }
-        },
-        "drEndpointSubnetName": {
-            "type": "string",
-            "defaultValue": "dr-endpoint-subnet",
-            "metadata": {
-                "description": "DR region private endpoint subnet name"
-            }
-        },
-        "drEndpointSubnetCidr": {
-            "type": "string",
-            "defaultValue": "10.1.1.0/24",
-            "metadata": {
-                "description": "DR region private endpoint subnet Cidr"
             }
         },
         "drFirewallSubnetName": {
@@ -392,6 +364,85 @@
                 "description": "Availability zone for Node/VM 4"
             }
         },
+        "deployPrimaryAPIMgmt": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary API Management service"
+            }
+        },
+        "apiMgmtPrmarySubnetName": {
+            "type": "string",
+            "defaultValue": "primary-api-mgmt-subnet",
+            "metadata": {
+                "description": "Subnet name for the private API management service at the primary site"
+            }
+        },
+        "apiMgmtPrimarySubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.4.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for private endpoint of API Management service at the primary site"
+            }
+        },
+        "deployDRAPIMgmt": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR API Management service"
+            }
+        },
+        "apiMgmtDRSubnetName": {
+            "type": "string",
+            "defaultValue": "primary-api-mgmt-subnet",
+            "metadata": {
+                "description": "Subnet name for the private API management service at the DR site"
+            }
+        },
+        "apiMgmtDRSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.4.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for private endpoint of API Management service at the DR site"
+            }
+        },
+        "apiMgmtPublisherEmail": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+                "description": "Email address of the API publisher"
+            }
+        },
+        "apiMgmtPublisherName": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+                "description": "The name of the owner of the service"
+            }
+        },
+        "apiMgmtSku": {
+            "type": "string",
+            "defaultValue": "Developer",
+            "allowedValues": [
+            "Developer",
+            "Standard",
+            "Premium"
+            ],
+            "metadata": {
+            "description": "The pricing tier of the API Management services"
+            }
+        },
+        "apiMgmtCount": {
+            "type": "int",
+            "defaultValue": 1,
+            "allowedValues": [
+            1,
+            2
+            ],
+            "metadata": {
+            "description": "The instance size of each sites API Management service."
+            }
+        },
         "branch": {
             "type": "string",
             "defaultValue": "main",
@@ -403,8 +454,7 @@
     "variables": {
         "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
         "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
-        "deployScript": "install-sp-rhel.sh",
-        "deployId": "[substring(uniqueString(resourceGroup().id),1,5)]"
+        "deployScript": "install-sp-rhel.sh"
     },
     "resources": [
         {
@@ -422,18 +472,6 @@
                     ]
                 },
                 "subnets": [
-                    {
-                        "name": "[parameters('primaryEndpointSubnetName')]",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryEndpointSubnetName'))]",
-                        "properties": {
-                            "addressPrefix": "[parameters('primaryEndpointSubnetCidr')]",
-                            "serviceEndpoints": [],
-                            "delegations": [],
-                            "privateEndpointNetworkPolicies": "Disabled",
-                            "privateLinkServiceNetworkPolicies": "Enabled"
-                        },
-                        "type": "Microsoft.Network/virtualNetworks/subnets"
-                    },
                     {
                         "name": "[parameters('primaryVMSubnetName')]",
                         "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryVMSubnetName'))]",
@@ -469,18 +507,6 @@
                     ]
                 },
                 "subnets": [
-                    {
-                        "name": "[parameters('drEndpointSubnetName')]",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drEndpointSubnetName'))]",
-                        "properties": {
-                            "addressPrefix": "[parameters('drEndpointSubnetCidr')]",
-                            "serviceEndpoints": [],
-                            "delegations": [],
-                            "privateEndpointNetworkPolicies": "Disabled",
-                            "privateLinkServiceNetworkPolicies": "Enabled"
-                        },
-                        "type": "Microsoft.Network/virtualNetworks/subnets"
-                    },
                     {
                         "name": "[parameters('drVMSubnetName')]",
                         "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drVMSubnetName'))]",
@@ -1064,6 +1090,102 @@
                     },
                     "scriptParameters": {
                         "value": "[parameters('node4ScriptParameters')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryAPIMgmt')]",
+            "name": "primary-api-management",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/api-management/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('apiMgmtPrmarySubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('apiMgmtPrimarySubnetCidr')]"
+                    },
+                    "publisherEmail": {
+                        "value": "[parameters('apiMgmtPublisherEmail')]"
+                    },
+                    "publisherName": {
+                        "value": "[parameters('apiMgmtPublisherName')]"
+                    },
+                    "sku": {
+                        "value": "[parameters('apiMgmtSku')]"
+                    },
+                    "skuCount": {
+                        "value": "[parameters('apiMgmtCount')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployDRAPIMgmt'),parameters('deployDrSite'))]",
+            "name": "dr-api-management",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/api-management/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('apiMgmtDRSubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('apiMgmtDRSubnetCidr')]"
+                    },
+                    "publisherEmail": {
+                        "value": "[parameters('apiMgmtPublisherEmail')]"
+                    },
+                    "publisherName": {
+                        "value": "[parameters('apiMgmtPublisherName')]"
+                    },
+                    "sku": {
+                        "value": "[parameters('apiMgmtSku')]"
+                    },
+                    "skuCount": {
+                        "value": "[parameters('apiMgmtCount')]"
                     }
                 }
             }
