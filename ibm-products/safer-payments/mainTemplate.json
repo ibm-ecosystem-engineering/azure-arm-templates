@@ -113,6 +113,13 @@
                 "description": "Enable DDoS network protection on public IP addresses in Primary region"
             }
         },
+        "deployDrSite": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy a DR site and associated services."
+            }
+        },
         "drRegion": {
             "type": "string",
             "metadata": {
@@ -450,6 +457,7 @@
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2022-11-01",
             "name": "[parameters('drVnetName')]",
+            "condition": "[parameters('deployDrSite')]",
             "location": "[parameters('drRegion')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('drNsgName'))]"
@@ -542,6 +550,7 @@
         {
             "type": "Microsoft.Network/networkSecurityGroups",
             "apiVersion": "2022-11-01",
+            "condition": "[parameters('deployDrSite')]",
             "name": "[parameters('drNsgName')]",
             "location": "[parameters('drRegion')]",
             "properties": {
@@ -590,6 +599,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployDrSite')]",
             "name": "[concat(parameters('primaryVnetName'),'/',parameters('primaryVnetName'),'-to-',parameters('drVnetName'),'-peering-link')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
@@ -621,6 +631,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployDrSite')]",
             "name": "[concat(parameters('drVnetName'),'/',parameters('drVnetName'),'-to-',parameters('primaryVnetName'),'-peering-link')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
@@ -685,7 +696,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployDRBastion')]",
+            "condition": "[and(parameters('deployDRBastion'),parameters('deployDrSite'))]",
             "name": "dr-bastion",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
@@ -751,7 +762,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployDRFirewall')]",
+            "condition": "[and(parameters('deployDRFirewall'),parameters('deployDrSite'))]",
             "name": "dr-firewall",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
@@ -922,7 +933,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployNode3')]",
+            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'))]",
             "name": "sp-node-3",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
@@ -991,7 +1002,7 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[parameters('deployNode4')]",
+            "condition": "[and(parameters('deployNode4'),parameters('deployDrSite'))]",
             "name": "sp-node-4",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"

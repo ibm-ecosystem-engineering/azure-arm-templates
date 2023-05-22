@@ -49,7 +49,7 @@
     },
     "variables": {
         "firewallName": "[concat(parameters('namePrefix'),'-firewall')]",
-        "publicIPName": "[concat(parameters('namePrefix'),'-pip')]"
+        "publicIPName": "[concat(parameters('namePrefix'),'-fw-pip')]"
     },
     "resources": [
         {
