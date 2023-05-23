@@ -89,7 +89,8 @@
     "variables": {
         "storageSuffix": "core.windows.net",
         "storageDNSZoneName": "[concat('privatelink.file.',variables('storageSuffix'))]",
-        "fileStorageAccountPrivateEndpointGroupName": "file"
+        "fileStorageAccountPrivateEndpointGroupName": "file",
+        "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
     },
     "resources": [
         {
@@ -226,6 +227,14 @@
         "storageAccountName": {
             "type": "string",
             "value": "[parameters('storageAccountName')]"
+        },
+        "storageAccountResourceId": {
+            "type": "string",
+            "value": "[variables('storageAccountId')]"
+        },
+        "storageAccountKey": {
+            "type": "securestring",
+            "value": "[listKeys(variables('storageAccountId'), '2019-04-01').keys[0].value]"
         }
     }
 }

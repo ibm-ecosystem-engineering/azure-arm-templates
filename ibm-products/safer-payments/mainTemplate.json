@@ -485,7 +485,7 @@
         },
         "backupStorageEndpointName": {
             "type": "string",
-            "defaultValue": "backup-endpoint",
+            "defaultValue": "dr-backup-endpoint",
             "metadata": {
                 "description": "Name of the private endpoint for the storage"
             }
@@ -1047,8 +1047,78 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2021-04-01",
-            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'))]",
+            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'),not(parameters('deployBackupStorage')))]",
             "name": "sp-node-3",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "node3"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[parameters('vmSize')]"
+                    },
+                    "vmDiskType": {
+                        "value": "[parameters('vmDiskType')]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node3AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[parameters('vmOSVersion')]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "scriptParameters": {
+                        "value": "[variables('node3Parameters')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'),parameters('deployBackupStorage'))]",
+            "name": "sp-node-3-with-backup",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
                 "[resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare')]"
@@ -1121,7 +1191,7 @@
                         "value": "[parameters('backupStorageShareName')]"
                     },
                     "storageKey": {
-                        "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('backupStorageAccountName')), '2019-04-01').keys[0].value]"
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare'),'2021-04-01').outputs['storageAccountKey'].value]"
                     }
                 }
             }
