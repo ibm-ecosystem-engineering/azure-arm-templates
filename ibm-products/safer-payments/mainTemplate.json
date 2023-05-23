@@ -542,7 +542,8 @@
         "node1Parameters": "[concat(' -t ',parameters('node1Type'))]",
         "node2Parameters": "[concat(' -t ',parameters('node2Type'))]",
         "node3Parameters": "[concat(' -t ',parameters('node3Type'))]",
-        "node4Parameters": "[concat(' -t ',parameters('node4Type'))]"
+        "node4Parameters": "[concat(' -t ',parameters('node4Type'))]",
+        "backupStorageAccountId": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Storage/storageAccounts/',variables('backupStorageAccountName'))]"
     },
     "resources": [
         {
@@ -1191,7 +1192,7 @@
                         "value": "[parameters('backupStorageShareName')]"
                     },
                     "storageKey": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare'),'2021-04-01').outputs['storageAccountKey'].value]"
+                        "value": "[listKeys(variables('backupStorageAccountId'),'2019-04-01').keys[0].value]"
                     }
                 }
             }
