@@ -443,6 +443,65 @@
             "description": "The instance size of each sites API Management service."
             }
         },
+        "deployBackupStorage": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description" : "Flag to determine whether to deploy a private NFS file share for backups at the DR site."
+            }
+        },
+        "backupStorageShareName": {
+            "type": "string",
+            "defaultValue": "backup",
+            "minLength": 3,
+            "maxLength": 63,
+            "metadata": {
+                "description": "Name of the file share to be created for backups"
+            }
+        },
+        "backupStorageEndpointName": {
+            "type": "string",
+            "defaultValue": "backup",
+            "metadata": {
+                "description": "Name of the private endpoint for the storage"
+            }
+        },
+        "backupStorageFileType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_LRS",
+                "Standard_ZRS"
+            ],
+            "metadata": {
+                "description": "Type of storage account. If storage account already exists, this value must match existing storage account."
+            }            
+        },
+        "backupStorageQuota": {
+            "type": "int",
+            "defaultValue": 5120,
+            "minValue": 1,
+            "maxValue": 5120,
+            "metadata": {
+                "description": "Size in GB of the backup storage quota - 5120GB (5TB)max"
+            }
+        },
+        "backupStorageSubnetName": {
+            "type": "string",
+            "defaultValue": "backup-subnet",
+            "metadata": {
+                "description": "Name of the subnet for the backup storage"
+            }
+        },
+        "backupStorageSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.5.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for the backup storage"
+            }
+        },
         "branch": {
             "type": "string",
             "defaultValue": "main",
@@ -1186,6 +1245,54 @@
                     },
                     "skuCount": {
                         "value": "[parameters('apiMgmtCount')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployBackupStorage'),parameters('deployDrSite'))]",
+            "name": "dr-backup-fileshare",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/file-share/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('backupStorageSubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('backupStorageSubnetCidr')]"
+                    },
+                    "fileType": {
+                        "value": "[parameters('backupStorageFileType')]"
+                    },
+                    "privateStorageEndpointName": {
+                        "value": "[parameters('backupStorageEndpointName')]"
+                    },
+                    "fileShareName": {
+                        "value": "[parameters('backupStorageShareName')]"
+                    },
+                    "quota": {
+                        "value": "[parameters('backupStorageQuota')]"
                     }
                 }
             }
