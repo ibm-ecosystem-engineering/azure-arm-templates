@@ -125,6 +125,34 @@
                 "description": "Domain name prefix for the public IP address"
             }
         },
+        "mountDrive": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to determine whether to mount file share drive"
+            }
+        },
+        "storageAccount": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Used with mountDrive flag. Name of the storage account."
+            }
+        },
+        "shareName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Used with mountDrive flag. Name of the file share to mount."
+            }
+        },
+        "storageKey": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Used with mountDrive flag. Storage account key."
+            }
+        },
         "baseURL": {
             "type": "string",
             "defaultValue": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]"
@@ -195,7 +223,9 @@
             "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPName'))]"
         },
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
-        "subnetId": "[concat(variables('vnetId'),'/subnets/',parameters('subnetName'))]"
+        "subnetId": "[concat(variables('vnetId'),'/subnets/',parameters('subnetName'))]",
+        "mountParameters": "[concat(parameters('storageAccount'),' ',parameters('shareName'),' ',parameters('storageKey'))]",
+        "scriptParameters": "[if(parameters('mountDrive'),concat(parameters('scriptParameters'),' ',variables('mountParameters')),parameters('scriptParameters'))]"
     },
     "resources": [
         {
@@ -309,7 +339,7 @@
                     "fileUris": [
                         "[uri(parameters('baseURL'),concat(parameters('branch'),parameters('scriptOffset'),parameters('scriptName')))]"
                     ],
-                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' ',parameters('scriptParameters'))]"
+                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' ',variables('scriptParameters'))]"
                 }
             }
         }

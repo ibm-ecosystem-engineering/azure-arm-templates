@@ -304,30 +304,54 @@
                 "description": "Flag to indicate whether a public ip address should be created for each node."
             }
         },
-        "node1ScriptParameters": {
+        "node1Type": {
             "type": "string",
             "defaultValue": "primary",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
             "metadata": {
                 "description": "Parameters for setup script for Node 1"
             }
         },
-        "node2ScriptParameters": {
+        "node2Type": {
             "type": "string",
             "defaultValue": "ha",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
             "metadata": {
                 "description": "Parameters for setup script for Node 2"
             }
         },
-        "node3ScriptParameters": {
+        "node3Type": {
             "type": "string",
             "defaultValue": "dr",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
             "metadata": {
                 "description": "Parameters for setup script for Node 3"
             }
         },
-        "node4ScriptParameters": {
+        "node4Type": {
             "type": "string",
             "defaultValue": "standby",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
             "metadata": {
                 "description": "Parameters for setup script for Node 4"
             }
@@ -461,7 +485,7 @@
         },
         "backupStorageEndpointName": {
             "type": "string",
-            "defaultValue": "backup",
+            "defaultValue": "backup-endpoint",
             "metadata": {
                 "description": "Name of the private endpoint for the storage"
             }
@@ -513,7 +537,12 @@
     "variables": {
         "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
         "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
-        "deployScript": "install-sp-rhel.sh"
+        "deployScript": "install-sp-rhel.sh",
+        "backupStorageAccountName": "[format('drbackup{0}', substring(uniqueString(resourceGroup().id),1,5))]",
+        "node1Parameters": "[concat(' -t ',parameters('node1Type'))]",
+        "node2Parameters": "[concat(' -t ',parameters('node2Type'))]",
+        "node3Parameters": "[concat(' -t ',parameters('node3Type'))]",
+        "node4Parameters": "[concat(' -t ',parameters('node4Type'))]"
     },
     "resources": [
         {
@@ -941,7 +970,7 @@
                         "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "[parameters('node1ScriptParameters')]"
+                        "value": "[variables('node1Parameters')]"
                     }
                 }
             }
@@ -1010,7 +1039,7 @@
                         "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "[parameters('node2ScriptParameters')]"
+                        "value": "[variables('node2Parameters')]"
                     }
                 }
             }
@@ -1021,7 +1050,8 @@
             "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'))]",
             "name": "sp-node-3",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -1079,7 +1109,19 @@
                         "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "[parameters('node3ScriptParameters')]"
+                        "value": "[variables('node3Parameters')]"
+                    },
+                    "mountDrive": {
+                        "value": true
+                    },
+                    "storageAccount": {
+                        "value": "[variables('backupStorageAccountName')]"
+                    },
+                    "shareName": {
+                        "value": "[parameters('backupStorageShareName')]"
+                    },
+                    "storageKey": {
+                        "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('backupStorageAccountName')), '2019-04-01').keys[0].value]"
                     }
                 }
             }
@@ -1148,7 +1190,7 @@
                         "value": "[variables('deployScript')]"
                     },
                     "scriptParameters": {
-                        "value": "[parameters('node4ScriptParameters')]"
+                        "value": "[variables('node4Parameters')]"
                     }
                 }
             }
@@ -1264,8 +1306,8 @@
                     "contentVersion":"1.0.0.0"
                 },
                 "parameters": {
-                    "namePrefix": {
-                        "value": "dr"
+                    "storageAccountName": {
+                        "value": "[format('drbackup{0}', substring(uniqueString(resourceGroup().id),1,5))]"
                     },
                     "location": {
                         "value": "[parameters('drRegion')]"
