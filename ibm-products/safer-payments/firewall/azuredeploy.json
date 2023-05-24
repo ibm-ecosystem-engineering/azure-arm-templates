@@ -4,7 +4,7 @@
     "parameters": {
         "namePrefix": {
             "type": "string",
-            "minLength": 3,
+            "minLength": 2,
             "maxLength": 10,
             "metadata": {
                 "description": "Prefix for resource names"
