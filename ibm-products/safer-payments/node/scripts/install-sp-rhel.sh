@@ -16,8 +16,6 @@ function log-output() {
     echo ${MSG}
 }
 
-log-output "INFO: Script started"
-
 function usage()
 {
    echo "Sets a node for IBM Safer Payments."
@@ -32,6 +30,8 @@ function usage()
    echo "  -h     Print this help"
    echo
 }
+
+log-output "INFO: Script started"
 
 # Get the options
 while getopts ":t:ms:p:k:h" option; do
@@ -56,19 +56,23 @@ while getopts ":t:ms:p:k:h" option; do
    esac
 done
 
+# Set Defaults
+if [[ -z $SCRIPT_DIR ]]; then export SCRIPT_DIR="$(pwd)"; fi
+if [[ -z $BIN_FILE ]]; then export BIN_FILE="Safer_Payments_6.5_mp_ml.tar"; fi
+export TIMESTAMP=$(date +"%y%m%d-%H%M%S")
+if [[ -z $TMP_DIR ]]; then export TMP_DIR="tmp-$TIMESTAMP"; fi
+if [[ -z $OUTPUT_DIR ]]; then export OUTPUT_DIR="${TMP_DIR}"; fi
+
 log-output "INFO: Setting up node as $TYPE"
-if [[ $MOUNT_DRIVE == "yes" ]]; then
-    log-output "INFO: Mounting drive $SHARE from storage account $STORAGE_ACCOUNT"
-fi
 
 # Wait for cloud-init to finish
 count=0
 while [[ $(ps xua | grep cloud-init | grep -v grep) ]]; do
-    echo "Waiting for cloud init to finish. Waited $count minutes. Will wait 15 mintues."
+    log-output "INFO: Waiting for cloud init to finish. Waited $count minutes. Will wait 15 mintues."
     sleep 60
     count=$(( $count + 1 ))
     if (( $count > 15 )); then
-        echo "ERROR: Timeout waiting for cloud-init to finish"
+        log-output "ERROR: Timeout waiting for cloud-init to finish"
         exit 1;
     fi
 done
@@ -78,6 +82,8 @@ sudo yum -y update
 
 # Mount drive if required
 if [[ $MOUNT_DRIVE == "yes" ]]; then
+    log-output "INFO: Setting up drive mount"
+
     sudo yum install -y keyutils cifs-utils
 
     sudo mkdir -p /mnt/${SHARE}
@@ -87,6 +93,7 @@ if [[ $MOUNT_DRIVE == "yes" ]]; then
     fi
 
     if [[ ! -f "/etc/smbcredentials/${STORAGE_ACCOUNT}.cred" ]]; then
+        log-output "INFO: Setting up credentials for drive"
         sudo touch /etc/smbcredentials/${STORAGE_ACCOUNT}.cred
         sudo chmod 600 /etc/smbcredentials/${STORAGE_ACCOUNT}.cred
         echo "username=${STORAGE_ACCOUNT}" | sudo tee -a /etc/smbcredentials/${STORAGE_ACCOUNT}.cred > /dev/null
@@ -109,8 +116,27 @@ fi
 
 # Download safer payments binary
 
+# Extract the files
+#mkdir -p ${SCRIPT_DIR}/${TMP_DIR}
+#tar xf ${SCRIPT_DIR}/${BIN_FILE} -C ${SCRIPT_DIR}/${TMP_DIR}
+
+# Get zip file and unzip
+# find ${SCRIPT_DIR}/${TMP_DIR}/*.zip
+
+# Setup the Java Runtime Environment
+
+# unzip ibm_jre_8.0.2.10_linux_x64.vm
+# tar xf vm.tar.Z
+# chmod +x jre/bin/java
+# chmod +x SaferPayments.bin
+# export PATH=`pwd`/jre/bin:$PATH
+
+
 # Run safer payments installation
-# $LICENSE_ACCEPTED$=true
+# Add the following to the installer.properties file
+# LICENSE_ACCEPTED=true
+
+# Below has to be run as root - which means adding the jre/bin path to root shell beforehand
 # sh ./SaferPayments.bin -i silent
 
 # Run safer payments postrequisites

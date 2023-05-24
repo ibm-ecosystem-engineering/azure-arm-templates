@@ -146,13 +146,6 @@
                 "description": "Used with mountDrive flag. Name of the file share to mount."
             }
         },
-        "storageKey": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Used with mountDrive flag. Storage account key."
-            }
-        },
         "baseURL": {
             "type": "string",
             "defaultValue": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]"
@@ -178,11 +171,11 @@
                 "description": "Name of the script to run on VM"
             }
         },
-        "scriptParameters": {
-            "type": "securestring",
+        "nodeType": {
+            "type": "string",
             "defaultValue": "",
             "metadata": {
-                "description": "Parameters to be sent to the script"
+                "description": "Type of node to be deployed."
             }
         }
     },
@@ -224,8 +217,7 @@
         },
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
         "subnetId": "[concat(variables('vnetId'),'/subnets/',parameters('subnetName'))]",
-        "mountParameters": "[concat(parameters('storageAccount'),' ',parameters('shareName'),' ',parameters('storageKey'))]",
-        "scriptParameters": "[if(parameters('mountDrive'),concat(parameters('scriptParameters'),' ',variables('mountParameters')),parameters('scriptParameters'))]"
+        "backupStorageAccountId": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Storage/storageAccounts/',parameters('storageAccount'))]"
     },
     "resources": [
         {
@@ -324,7 +316,7 @@
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
             "apiVersion": "2022-03-01",
-            "condition": "[if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false'))]",
+            "condition": "[and(if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false')),not(parameters('mountDrive')))]",
             "location": "[parameters('location')]",
             "name": "[concat(variables('vmName'),'/','install-sp-rhel')]",
             "dependsOn": [
@@ -339,7 +331,29 @@
                     "fileUris": [
                         "[uri(parameters('baseURL'),concat(parameters('branch'),parameters('scriptOffset'),parameters('scriptName')))]"
                     ],
-                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' ',variables('scriptParameters'))]"
+                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' -t ',parameters('nodeType'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2022-03-01",
+            "condition": "[and(if(equals(variables('imageReference')[parameters('vmOSVersion')].publisher, 'RedHat'), bool('true'), bool('false')),parameters('mountDrive'))]",
+            "location": "[parameters('location')]",
+            "name": "[concat(variables('vmName'),'/','install-sp-rhel-with-mount')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "protectedSettings": {
+                    "fileUris": [
+                        "[uri(parameters('baseURL'),concat(parameters('branch'),parameters('scriptOffset'),parameters('scriptName')))]"
+                    ],
+                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' -t ',parameters('nodeType'),' -m -s ',parameters('storageAccount'),' -p ',parameters('shareName'),' -k ',listKeys(variables('backupStorageAccountId'), '2019-04-01').keys[0].value)]"
                 }
             }
         }

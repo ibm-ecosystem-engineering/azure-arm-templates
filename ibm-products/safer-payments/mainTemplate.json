@@ -537,13 +537,7 @@
     "variables": {
         "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
         "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
-        "deployScript": "install-sp-rhel.sh",
-        "backupStorageAccountName": "[format('drbackup{0}', substring(uniqueString(resourceGroup().id),1,5))]",
-        "node1Parameters": "[concat(' -t ',parameters('node1Type'))]",
-        "node2Parameters": "[concat(' -t ',parameters('node2Type'))]",
-        "node3Parameters": "[concat(' -t ',parameters('node3Type'))]",
-        "node4Parameters": "[concat(' -t ',parameters('node4Type'))]",
-        "backupStorageAccountId": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Storage/storageAccounts/',variables('backupStorageAccountName'))]"
+        "deployScript": "install-sp-rhel.sh"
     },
     "resources": [
         {
@@ -970,8 +964,8 @@
                     "scriptName": {
                         "value": "[variables('deployScript')]"
                     },
-                    "scriptParameters": {
-                        "value": "[variables('node1Parameters')]"
+                    "nodeType": {
+                        "value": "[parameters('node1Type')]"
                     }
                 }
             }
@@ -1039,8 +1033,8 @@
                     "scriptName": {
                         "value": "[variables('deployScript')]"
                     },
-                    "scriptParameters": {
-                        "value": "[variables('node2Parameters')]"
+                    "nodeType": {
+                        "value": "[parameters('node2Type')]"
                     }
                 }
             }
@@ -1109,8 +1103,8 @@
                     "scriptName": {
                         "value": "[variables('deployScript')]"
                     },
-                    "scriptParameters": {
-                        "value": "[variables('node3Parameters')]"
+                    "nodeType": {
+                        "value": "[parameters('node3Type')]"
                     }
                 }
             }
@@ -1179,20 +1173,17 @@
                     "scriptName": {
                         "value": "[variables('deployScript')]"
                     },
-                    "scriptParameters": {
-                        "value": "[variables('node3Parameters')]"
+                    "nodeType": {
+                        "value": "[parameters('node3Type')]"
                     },
                     "mountDrive": {
                         "value": true
                     },
                     "storageAccount": {
-                        "value": "[variables('backupStorageAccountName')]"
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments','dr-backup-fileshare'), '2021-04-01').outputs['storageAccountName'].value]"
                     },
                     "shareName": {
                         "value": "[parameters('backupStorageShareName')]"
-                    },
-                    "storageKey": {
-                        "value": "[listKeys(variables('backupStorageAccountId'),'2019-04-01').keys[0].value]"
                     }
                 }
             }
@@ -1260,8 +1251,8 @@
                     "scriptName": {
                         "value": "[variables('deployScript')]"
                     },
-                    "scriptParameters": {
-                        "value": "[variables('node4Parameters')]"
+                    "nodeType": {
+                        "value": "[parameters('node4Type')]"
                     }
                 }
             }
