@@ -2,6 +2,19 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "tshirtSize": {
+            "type": "string",
+            "defaultValue": "dev",
+            "allowedValues": [
+                "dev",
+                "small",
+                "medium",
+                "large"
+            ],
+            "metadata": {
+                "description": "T Shirt size of deployment"
+            }
+        },
         "primaryRegion": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
@@ -265,38 +278,6 @@
                 "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
             }
         },
-        "vmSize": {
-            "type": "string",
-            "defaultValue": "Standard_D2s_v3",
-            "metadata": {
-                "description": "Size of Virtual Machine"
-            }
-        },
-        "vmDiskType": {
-            "type": "string",
-            "defaultValue": "Premium_LRS",
-            "allowedValues": [
-                "Premium_LRS",
-                "Premium_ZRS",
-                "Standard_LRS",
-                "StandardSSD_LRS",
-                "StandardSSD_ZRS",
-                "UltraSSD_LRS"
-            ],
-            "metadata": {
-                "description": "OS Disk type for Dev VM"
-            }
-        },
-        "vmOSVersion": {
-            "type": "string",
-            "defaultValue": "RHEL 8.6",
-            "allowedValues": [
-                "RHEL 8.6"
-            ],
-            "metadata": {
-                "description": "Operating system version"
-            }
-        },
         "createVMPublicIP": {
             "type": "bool",
             "defaultValue": false,
@@ -537,7 +518,33 @@
     "variables": {
         "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
         "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
-        "deployScript": "install-sp-rhel.sh"
+        "deployScript": "install-sp-rhel.sh",
+        "tshirtSize": {
+            "dev": {   // Only for dev work
+                "vmSize": "Standard_D2s_v3",
+                "vmDiskType": "Standard_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 100
+            },
+            "small": {  // 4 cores, 70GB RAM, 200GB Disk
+                "vmSize": "Standard_E16-4as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 200
+            },
+            "medium": {  // 4 cores, 70GB RAM, 300GB Disk
+                "vmSize": "Standard_E16-4as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 300
+            },
+            "large": {  // 8 cores, 70GB RAM, 400GB Disk
+                "vmSize": "Standard_E16-8as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 400
+            }
+        }
     },
     "resources": [
         {
@@ -917,7 +924,7 @@
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "node1"
+                        "value": "[concat('primary-',parameters('node1Type'))]"
                     },
                     "location": {
                         "value": "[parameters('primaryRegion')]"
@@ -941,16 +948,16 @@
                         "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
-                        "value": "[parameters('vmSize')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
                     },
                     "vmDiskType": {
-                        "value": "[parameters('vmDiskType')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
                     },
                     "vmZone": {
                         "value": "[parameters('node1AvailabilityZone')]"
                     },
                     "vmOSVersion": {
-                        "value": "[parameters('vmOSVersion')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
                     },
                     "createPublicIP": {
                         "value": "[parameters('createVMPublicIP')]"
@@ -986,7 +993,7 @@
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "node2"
+                        "value": "[concat('primary-',parameters('node2Type'))]"
                     },
                     "location": {
                         "value": "[parameters('primaryRegion')]"
@@ -1010,16 +1017,16 @@
                         "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
-                        "value": "[parameters('vmSize')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
                     },
                     "vmDiskType": {
-                        "value": "[parameters('vmDiskType')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
                     },
                     "vmZone": {
                         "value": "[parameters('node2AvailabilityZone')]"
                     },
                     "vmOSVersion": {
-                        "value": "[parameters('vmOSVersion')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
                     },
                     "createPublicIP": {
                         "value": "[parameters('createVMPublicIP')]"
@@ -1056,7 +1063,7 @@
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "node3"
+                        "value": "[concat('dr-',parameters('node3Type'))]"
                     },
                     "location": {
                         "value": "[parameters('drRegion')]"
@@ -1080,16 +1087,16 @@
                         "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
-                        "value": "[parameters('vmSize')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
                     },
                     "vmDiskType": {
-                        "value": "[parameters('vmDiskType')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
                     },
                     "vmZone": {
                         "value": "[parameters('node3AvailabilityZone')]"
                     },
                     "vmOSVersion": {
-                        "value": "[parameters('vmOSVersion')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
                     },
                     "createPublicIP": {
                         "value": "[parameters('createVMPublicIP')]"
@@ -1126,7 +1133,7 @@
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "node3"
+                        "value": "[concat('dr-',parameters('node3Type'),'-with-backup')]"
                     },
                     "location": {
                         "value": "[parameters('drRegion')]"
@@ -1150,16 +1157,16 @@
                         "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
-                        "value": "[parameters('vmSize')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
                     },
                     "vmDiskType": {
-                        "value": "[parameters('vmDiskType')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
                     },
                     "vmZone": {
                         "value": "[parameters('node3AvailabilityZone')]"
                     },
                     "vmOSVersion": {
-                        "value": "[parameters('vmOSVersion')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
                     },
                     "createPublicIP": {
                         "value": "[parameters('createVMPublicIP')]"
@@ -1204,7 +1211,7 @@
                 },
                 "parameters": {
                     "namePrefix": {
-                        "value": "node4"
+                        "value": "[concat('dr-',parameters('node4Type'))]"
                     },
                     "location": {
                         "value": "[parameters('drRegion')]"
@@ -1228,16 +1235,16 @@
                         "value": "[parameters('securityType')]"
                     },
                     "vmSize": {
-                        "value": "[parameters('vmSize')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
                     },
                     "vmDiskType": {
-                        "value": "[parameters('vmDiskType')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
                     },
                     "vmZone": {
                         "value": "[parameters('node4AvailabilityZone')]"
                     },
                     "vmOSVersion": {
-                        "value": "[parameters('vmOSVersion')]"
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
                     },
                     "createPublicIP": {
                         "value": "[parameters('createVMPublicIP')]"
