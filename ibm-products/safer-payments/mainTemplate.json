@@ -1187,7 +1187,7 @@
                         "value": true
                     },
                     "storageAccount": {
-                        "value": "[reference(resourceId('Microsoft.Resources/deployments','dr-backup-fileshare'), '2021-04-01').outputs['storageAccountName'].value]"
+                        "value": "[if(parameters('deployBackupStorage'),reference(resourceId('Microsoft.Resources/deployments','dr-backup-fileshare'), '2021-04-01').outputs['storageAccountName'].value, '')]"
                     },
                     "shareName": {
                         "value": "[parameters('backupStorageShareName')]"

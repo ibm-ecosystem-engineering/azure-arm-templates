@@ -173,7 +173,13 @@
         },
         "nodeType": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "primary",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
             "metadata": {
                 "description": "Type of node to be deployed."
             }
@@ -217,7 +223,7 @@
         },
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
         "subnetId": "[concat(variables('vnetId'),'/subnets/',parameters('subnetName'))]",
-        "backupStorageAccountId": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Storage/storageAccounts/',parameters('storageAccount'))]"
+        "backupStorageAccountId": "[if(parameters('mountDrive'),resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccount')),null())]"
     },
     "resources": [
         {
@@ -353,7 +359,7 @@
                     "fileUris": [
                         "[uri(parameters('baseURL'),concat(parameters('branch'),parameters('scriptOffset'),parameters('scriptName')))]"
                     ],
-                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' -t ',parameters('nodeType'),' -m -s ',parameters('storageAccount'),' -p ',parameters('shareName'),' -k ',listKeys(variables('backupStorageAccountId'), '2019-04-01').keys[0].value)]"
+                    "commandToExecute": "[concat('/bin/bash ',parameters('scriptName'),' -t ',parameters('nodeType'),' -m -s ',parameters('storageAccount'),' -p ',parameters('shareName'),' -k ',if(parameters('mountDrive'),listKeys(variables('backupStorageAccountId'), '2019-04-01').keys[0].value,null()))]"
                 }
             }
         }
