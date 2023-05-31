@@ -1,0 +1,1412 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "tshirtSize": {
+            "type": "string",
+            "defaultValue": "dev",
+            "allowedValues": [
+                "dev",
+                "small",
+                "medium",
+                "large"
+            ],
+            "metadata": {
+                "description": "T Shirt size of deployment"
+            }
+        },
+        "primaryRegion": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Azure region for primary site"
+            }
+        },
+        "primaryVnetName": {
+            "type": "string",
+            "defaultValue": "primary-vnet",
+            "metadata": {
+                "description": "Primary region virtual network name"
+            }
+        },
+        "primaryVnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/20",
+            "metadata": {
+                "description": "Primary region virtual network address space"
+            }
+        },
+        "primaryVMSubnetName": {
+            "type": "string",
+            "defaultValue": "primary-vm-subnet",
+            "metadata": {
+                "description": "Primary region VM subnet name"
+            }
+        },
+        "primaryVMSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24",
+            "metadata": {
+                "description": "Primary region VM subnet address space"
+            }
+        },
+        "primaryFirewallSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureFirewallSubnet",
+            "allowedValues": [
+                "AzureFirewallSubnet"
+            ],
+            "metadata": {
+                "description": "Primary region firewall subnet name"
+            }
+        },
+        "primaryFirewallSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.2.0/26",
+            "metadata": {
+                "description": "Primary region firewall subnet address space"
+            }
+        },
+        "deployPrimaryFirewall": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary region firewall"
+            }
+        },
+        "primaryBastionSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.3.0/26",
+            "metadata": {
+                "description": "Primary region bastion subnet address space"
+            }
+        },
+        "primaryBastionSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureBastionSubnet",
+            "allowedValues": [
+                "AzureBastionSubnet"
+            ],
+            "metadata": {
+                "description": "Name of the primary bastion subnet. Do not change from default."
+            }
+        },
+        "deployPrimaryBastion": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary region bastion host"
+            }
+        },
+        "primaryNsgName": {
+            "type": "string",
+            "defaultValue": "primary-nsg",
+            "metadata": {
+                "description": "Name of the primary network security group"
+            }
+        },
+        "enablePrimaryDDoSProtection": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable DDoS network protection on public IP addresses in Primary region"
+            }
+        },
+        "deployDrSite": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy a DR site and associated services."
+            }
+        },
+        "drRegion": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure region for DR site"
+            }
+        },
+        "drVNetCIDR": {
+            "type": "string",
+            "defaultValue": "10.1.0.0/20",
+            "metadata": {
+                "description": "DR region virtual network address space"
+            }
+        },
+        "drVnetName": {
+            "type": "string",
+            "defaultValue": "dr-vnet",
+            "metadata": {
+                "description": "DR region virtual network name"
+            }
+        },
+        "drVMSubnetName": {
+            "type": "string",
+            "defaultValue": "dr-vm-subnet",
+            "metadata": {
+                "description": "DR region VM subnet name"
+            }
+        },
+        "drVMSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.0.0/24",
+            "metadata": {
+                "description": "DR region VM subnet address space"
+            }
+        },
+        "drFirewallSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureFirewallSubnet",
+            "allowedValues": [
+                "AzureFirewallSubnet"
+            ],
+            "metadata": {
+                "description": "DR region firewall subnet name"
+            }
+        },
+        "drFirewallSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.2.0/26",
+            "metadata": {
+                "description": "DR region firewall subnet address space"
+            }
+        },
+        "deployDRFirewall": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR region firewall"
+            }
+        },
+        "drBastionSubnetName": {
+            "type": "string",
+            "defaultValue": "AzureBastionSubnet",
+            "allowedValues": [
+                "AzureBastionSubnet"
+            ],
+            "metadata": {
+                "description": "Name of the DR bastion subnet. Do not change from default."
+            }
+        },
+        "drBastionSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.3.0/26",
+            "metadata": {
+                "description": "DR region bastion subnet address space"
+            }
+        },
+        "deployDRBastion": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR region bastion host"
+            }
+        },
+        "drNsgName": {
+            "type": "string",
+            "defaultValue": "dr-nsg",
+            "metadata": {
+                "description": "Name of the DR network security group"
+            }
+        },
+        "enableDrDDoSProtection": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable DDoS network protection on public IP addresses in DR region"
+            }
+        },
+        "deployNode1": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 1 VM"
+            }
+        },
+        "deployNode2": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 2 VM"
+            }
+        },
+        "deployNode3": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 3 VM (DR)"
+            }
+        },
+        "deployNode4": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy Node 4 VM (DR)"
+            }
+        },
+        "adminUserName": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin user for created VMs"
+            }
+        },
+        "adminPassword": {
+            "type": "secureString",
+            "metadata": {
+                "description": "SSH Key or password for the Virtual Machine."
+            }
+        },
+        "authType": {
+            "type": "string",
+            "defaultValue": "sshPublicKey",
+            "allowedValues": [
+                "sshPublicKey",
+                "password"
+            ],
+            "metadata": {
+                "description": "Type of VM authentication. SSH Key or Password"
+            }
+        },
+        "securityType": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Standard",
+                "TrustedLaunch"
+            ],
+            "metadata": {
+                "description": "Security type for virtual machine (trusted launch not supported with RHEL)"
+            }
+        },
+        "createVMPublicIP": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Flag to indicate whether a public ip address should be created for each node."
+            }
+        },
+        "node1Type": {
+            "type": "string",
+            "defaultValue": "primary",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
+            "metadata": {
+                "description": "Parameters for setup script for Node 1"
+            }
+        },
+        "node2Type": {
+            "type": "string",
+            "defaultValue": "ha",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
+            "metadata": {
+                "description": "Parameters for setup script for Node 2"
+            }
+        },
+        "node3Type": {
+            "type": "string",
+            "defaultValue": "dr",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
+            "metadata": {
+                "description": "Parameters for setup script for Node 3"
+            }
+        },
+        "node4Type": {
+            "type": "string",
+            "defaultValue": "standby",
+            "allowedValues": [
+                "primary",
+                "ha",
+                "dr",
+                "standby"
+            ],
+            "metadata": {
+                "description": "Parameters for setup script for Node 4"
+            }
+        },
+        "node1AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "1",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 1"
+            }
+        },
+        "node2AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "2",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 2"
+            }
+        },
+        "node3AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "1",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 3"
+            }
+        },
+        "node4AvailabilityZone": {
+            "type": "string",
+            "defaultValue": "2",
+            "allowedValues": ["1", "2", "3"],
+            "metadata": {
+                "description": "Availability zone for Node/VM 4"
+            }
+        },
+        "deployPrimaryAPIMgmt": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the primary API Management service"
+            }
+        },
+        "apiMgmtPrmarySubnetName": {
+            "type": "string",
+            "defaultValue": "primary-api-mgmt-subnet",
+            "metadata": {
+                "description": "Subnet name for the private API management service at the primary site"
+            }
+        },
+        "apiMgmtPrimarySubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.4.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for private endpoint of API Management service at the primary site"
+            }
+        },
+        "deployDRAPIMgmt": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the DR API Management service"
+            }
+        },
+        "apiMgmtDRSubnetName": {
+            "type": "string",
+            "defaultValue": "primary-api-mgmt-subnet",
+            "metadata": {
+                "description": "Subnet name for the private API management service at the DR site"
+            }
+        },
+        "apiMgmtDRSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.0.4.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for private endpoint of API Management service at the DR site"
+            }
+        },
+        "apiMgmtPublisherEmail": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+                "description": "Email address of the API publisher"
+            }
+        },
+        "apiMgmtPublisherName": {
+            "type": "string",
+            "minLength": 1,
+            "metadata": {
+                "description": "The name of the owner of the service"
+            }
+        },
+        "apiMgmtSku": {
+            "type": "string",
+            "defaultValue": "Developer",
+            "allowedValues": [
+            "Developer",
+            "Standard",
+            "Premium"
+            ],
+            "metadata": {
+            "description": "The pricing tier of the API Management services"
+            }
+        },
+        "apiMgmtCount": {
+            "type": "int",
+            "defaultValue": 1,
+            "allowedValues": [
+            1,
+            2
+            ],
+            "metadata": {
+            "description": "The instance size of each sites API Management service."
+            }
+        },
+        "deployBackupStorage": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description" : "Flag to determine whether to deploy a private NFS file share for backups at the DR site."
+            }
+        },
+        "backupStorageShareName": {
+            "type": "string",
+            "defaultValue": "backup",
+            "minLength": 3,
+            "maxLength": 63,
+            "metadata": {
+                "description": "Name of the file share to be created for backups"
+            }
+        },
+        "backupStorageEndpointName": {
+            "type": "string",
+            "defaultValue": "dr-backup-endpoint",
+            "metadata": {
+                "description": "Name of the private endpoint for the storage"
+            }
+        },
+        "backupStorageFileType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_LRS",
+                "Standard_ZRS"
+            ],
+            "metadata": {
+                "description": "Type of storage account. If storage account already exists, this value must match existing storage account."
+            }            
+        },
+        "backupStorageQuota": {
+            "type": "int",
+            "defaultValue": 5120,
+            "minValue": 1,
+            "maxValue": 5120,
+            "metadata": {
+                "description": "Size in GB of the backup storage quota - 5120GB (5TB)max"
+            }
+        },
+        "backupStorageSubnetName": {
+            "type": "string",
+            "defaultValue": "backup-subnet",
+            "metadata": {
+                "description": "Name of the subnet for the backup storage"
+            }
+        },
+        "backupStorageSubnetCidr": {
+            "type": "string",
+            "defaultValue": "10.1.5.0/26",
+            "metadata": {
+                "description": "Subnet CIDR for the backup storage"
+            }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
+        }
+    },
+    "variables": {
+        "baseUrl": "[uri('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'))]",
+        "scriptOffset": "/ibm-products/safer-payments/node/scripts/",
+        "deployScript": "install-sp-rhel.sh",
+        "tshirtSize": {
+            "dev": {   // Only for dev work
+                "vmSize": "Standard_D2s_v3",
+                "vmDiskType": "Standard_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 100
+            },
+            "small": {  // 4 cores, 70GB RAM, 200GB Disk
+                "vmSize": "Standard_E16-4as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 200
+            },
+            "medium": {  // 4 cores, 70GB RAM, 300GB Disk
+                "vmSize": "Standard_E16-4as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 300
+            },
+            "large": {  // 8 cores, 70GB RAM, 400GB Disk
+                "vmSize": "Standard_E16-8as_v5",
+                "vmDiskType": "Premium_LRS",
+                "vmOSVersion": "RHEL 8.6",
+                "dataDiskSize": 400
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('primaryVnetName')]",
+            "location": "[parameters('primaryRegion')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('primaryNsgName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('primaryVMSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('primaryVnetName'), parameters('primaryVMSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('primaryVMSubnetCidr')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('primaryNsgName'))]"
+                            },
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "enableDdosProtection": "[parameters('enablePrimaryDDoSProtection')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('drVnetName')]",
+            "condition": "[parameters('deployDrSite')]",
+            "location": "[parameters('drRegion')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('drNsgName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('drVMSubnetName')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('drVnetName'), parameters('drVMSubnetName'))]",
+                        "properties": {
+                            "addressPrefix": "[parameters('drVMSubnetCidr')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('drNsgName'))]"
+                            },
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "enableDdosProtection": "[parameters('enableDrDDoSProtection')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2022-11-01",
+            "name": "[parameters('primaryNsgName')]",
+            "location": "[parameters('primaryRegion')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "AllowAnySSHInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('primaryNsgName'), 'AllowAnySSHInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    },
+                    {
+                        "name": "AllowAnyHTTPSInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('primaryNsgName'), 'AllowAnyHTTPSInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 110,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2022-11-01",
+            "condition": "[parameters('deployDrSite')]",
+            "name": "[parameters('drNsgName')]",
+            "location": "[parameters('drRegion')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "AllowAnySSHInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('drNsgName'), 'AllowAnySSHInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    },
+                    {
+                        "name": "AllowAnyHTTPSInbound",
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('drNsgName'), 'AllowAnyHTTPSInbound')]",
+                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                        "properties": {
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 110,
+                            "direction": "Inbound",
+                            "sourcePortRanges": [],
+                            "destinationPortRanges": [],
+                            "sourceAddressPrefixes": [],
+                            "destinationAddressPrefixes": []
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployDrSite')]",
+            "name": "[concat(parameters('primaryVnetName'),'/',parameters('primaryVnetName'),'-to-',parameters('drVnetName'),'-peering-link')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "peeringState": "Connected",
+                "peeringSyncLevel": "FullyInSync",
+                "remoteVirtualNetwork": {
+                    "id": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Network/virtualNetworks/',parameters('drVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "doNotVerifyRemoteGateways": false,
+                "remoteAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                },
+                "remoteVirtualNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('drVNetCIDR')]"
+                    ]
+                }
+            }  
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployDrSite')]",
+            "name": "[concat(parameters('drVnetName'),'/',parameters('drVnetName'),'-to-',parameters('primaryVnetName'),'-peering-link')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "peeringState": "Connected",
+                "peeringSyncLevel": "FullyInSync",
+                "remoteVirtualNetwork": {
+                    "id": "[concat(subscription().id,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Network/virtualNetworks/',parameters('primaryVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "doNotVerifyRemoteGateways": false,
+                "remoteAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                },
+                "remoteVirtualNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('primaryVnetCidr')]"
+                    ]
+                }
+            }  
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryBastion')]",
+            "name": "primary-bastion",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/bastion/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "bastionSubnetCIDR": {
+                        "value": "[parameters('primaryBastionSubnetCidr')]"
+                    },
+                    "bastionSubnetName": {
+                        "value": "[parameters('primaryBastionSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployDRBastion'),parameters('deployDrSite'))]",
+            "name": "dr-bastion",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/bastion/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "bastionSubnetCIDR": {
+                        "value": "[parameters('drBastionSubnetCidr')]"
+                    },
+                    "bastionSubnetName": {
+                        "value": "[parameters('drBastionSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryFirewall')]",
+            "name": "primary-firewall",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/firewall/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "firewallSubnetCIDR": {
+                        "value": "[parameters('primaryFirewallSubnetCidr')]"
+                    },
+                    "firewallSubnetName": {
+                        "value": "[parameters('primaryFirewallSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployDRFirewall'),parameters('deployDrSite'))]",
+            "name": "dr-firewall",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/firewall/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "firewallSubnetCIDR": {
+                        "value": "[parameters('drFirewallSubnetCidr')]"
+                    },
+                    "firewallSubnetName": {
+                        "value": "[parameters('drFirewallSubnetName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployNode1')]",
+            "name": "sp-node-1",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[concat('primary-',parameters('node1Type'))]"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('primaryVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
+                    },
+                    "vmDiskType": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node1AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "nodeType": {
+                        "value": "[parameters('node1Type')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployNode2')]",
+            "name": "sp-node-2",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[concat('primary-',parameters('node2Type'))]"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('primaryVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
+                    },
+                    "vmDiskType": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node2AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "nodeType": {
+                        "value": "[parameters('node2Type')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'),not(parameters('deployBackupStorage')))]",
+            "name": "sp-node-3",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[concat('dr-',parameters('node3Type'))]"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
+                    },
+                    "vmDiskType": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node3AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "nodeType": {
+                        "value": "[parameters('node3Type')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployNode3'),parameters('deployDrSite'),parameters('deployBackupStorage'))]",
+            "name": "sp-node-3-with-backup",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]",
+                "[resourceId('Microsoft.Resources/deployments', 'dr-backup-fileshare')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[concat('dr-',parameters('node3Type'),'-with-backup')]"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
+                    },
+                    "vmDiskType": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node3AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "nodeType": {
+                        "value": "[parameters('node3Type')]"
+                    },
+                    "mountDrive": {
+                        "value": true
+                    },
+                    "storageAccount": {
+                        "value": "[if(parameters('deployBackupStorage'),reference(resourceId('Microsoft.Resources/deployments','dr-backup-fileshare'), '2021-04-01').outputs['storageAccountName'].value, '')]"
+                    },
+                    "shareName": {
+                        "value": "[parameters('backupStorageShareName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployNode4'),parameters('deployDrSite'))]",
+            "name": "sp-node-4",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/node/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[concat('dr-',parameters('node4Type'))]"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('drVMSubnetName')]"
+                    },
+                    "adminUserName": {
+                        "value": "[parameters('adminUserName')]"
+                    },
+                    "adminPassword": {
+                        "value": "[parameters('adminPassword')]"
+                    },
+                    "authType": {
+                        "value": "[parameters('authType')]"
+                    },
+                    "securityType": {
+                        "value": "[parameters('securityType')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmSize]"
+                    },
+                    "vmDiskType": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmDiskType]"
+                    },
+                    "vmZone": {
+                        "value": "[parameters('node4AvailabilityZone')]"
+                    },
+                    "vmOSVersion": {
+                        "value": "[variables('tshirtSize')[parameters('tshirtSize')].vmOSVersion]"
+                    },
+                    "createPublicIP": {
+                        "value": "[parameters('createVMPublicIP')]"
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    },
+                    "scriptOffset": {
+                        "value": "[variables('scriptOffset')]"
+                    },
+                    "scriptName": {
+                        "value": "[variables('deployScript')]"
+                    },
+                    "nodeType": {
+                        "value": "[parameters('node4Type')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[parameters('deployPrimaryAPIMgmt')]",
+            "name": "primary-api-management",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('primaryVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/api-management/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "primary"
+                    },
+                    "location": {
+                        "value": "[parameters('primaryRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('primaryVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('apiMgmtPrmarySubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('apiMgmtPrimarySubnetCidr')]"
+                    },
+                    "publisherEmail": {
+                        "value": "[parameters('apiMgmtPublisherEmail')]"
+                    },
+                    "publisherName": {
+                        "value": "[parameters('apiMgmtPublisherName')]"
+                    },
+                    "sku": {
+                        "value": "[parameters('apiMgmtSku')]"
+                    },
+                    "skuCount": {
+                        "value": "[parameters('apiMgmtCount')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployDRAPIMgmt'),parameters('deployDrSite'))]",
+            "name": "dr-api-management",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/api-management/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "dr"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('apiMgmtDRSubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('apiMgmtDRSubnetCidr')]"
+                    },
+                    "publisherEmail": {
+                        "value": "[parameters('apiMgmtPublisherEmail')]"
+                    },
+                    "publisherName": {
+                        "value": "[parameters('apiMgmtPublisherName')]"
+                    },
+                    "sku": {
+                        "value": "[parameters('apiMgmtSku')]"
+                    },
+                    "skuCount": {
+                        "value": "[parameters('apiMgmtCount')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2021-04-01",
+            "condition": "[and(parameters('deployBackupStorage'),parameters('deployDrSite'))]",
+            "name": "dr-backup-fileshare",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('drVnetName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('baseUrl'), concat(parameters('branch'),'/ibm-products/safer-payments/file-share/azuredeploy.json'))]",
+                    "contentVersion":"1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[format('drbackup{0}', substring(uniqueString(resourceGroup().id),1,5))]"
+                    },
+                    "location": {
+                        "value": "[parameters('drRegion')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('drVnetName')]"
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "subnetName": {
+                        "value": "[parameters('backupStorageSubnetName')]"
+                    },
+                    "subnetCidr": {
+                        "value": "[parameters('backupStorageSubnetCidr')]"
+                    },
+                    "fileType": {
+                        "value": "[parameters('backupStorageFileType')]"
+                    },
+                    "privateStorageEndpointName": {
+                        "value": "[parameters('backupStorageEndpointName')]"
+                    },
+                    "fileShareName": {
+                        "value": "[parameters('backupStorageShareName')]"
+                    },
+                    "quota": {
+                        "value": "[parameters('backupStorageQuota')]"
+                    }
+                }
+            }
+        }
+    ]
+}

@@ -117,31 +117,53 @@ fi
 # Download safer payments binary
 
 # Extract the files
-#mkdir -p ${SCRIPT_DIR}/${TMP_DIR}
-#tar xf ${SCRIPT_DIR}/${BIN_FILE} -C ${SCRIPT_DIR}/${TMP_DIR}
+# mkdir -p ${SCRIPT_DIR}/${TMP_DIR}
+# tar xf ${SCRIPT_DIR}/${BIN_FILE} -C ${SCRIPT_DIR}/${TMP_DIR}
 
 # Get zip file and unzip
-# find ${SCRIPT_DIR}/${TMP_DIR}/*.zip
+# zipFiles=( $( cd ${SCRIPT_DIR}/${TMP_DIR} && find SaferPayments*.zip
+# if (( ${#zipFiles[@]} > 0 )); then 
+#   unzip ${SCRIPT_DIR}/${TMP_DIR}/${zipFiles[0]}
+# else
+#   log-output "ERROR: Safer Payments zip file not found in ${BIN_FILE}"
+#    exit 1
+# fi
 
 # Setup the Java Runtime Environment
 
-# unzip ibm_jre_8.0.2.10_linux_x64.vm
+# jreFiles=( $( cd ${SCRIPT_DIR}/${TMP_DIR} && find ibm_jre*.vm ))
+# if (( ${#jreFiles[@]} > 0 )); then
+#   unzip ${SCRIPT_DIR}/${TMP_DIR}/${jreFiles[0]}
+# else
+#   log-output "ERROR: ibm_jre file not found"
+#   exit 1
+# fi
 # tar xf vm.tar.Z
 # chmod +x jre/bin/java
 # chmod +x SaferPayments.bin
-# export PATH=`pwd`/jre/bin:$PATH
-
 
 # Run safer payments installation
-# Add the following to the installer.properties file
-# LICENSE_ACCEPTED=true
+# Accept the license
+# sed -i 's/LICENSE_ACCEPTED=FALSE/LICENSE_ACCEPTED=TRUE/g' installer.properties
 
-# Below has to be run as root - which means adding the jre/bin path to root shell beforehand
-# sh ./SaferPayments.bin -i silent
+# Change install path to be under /usr
+# sed -i 's/\/opt\//\/usr\//g' installer.properties
+
+# sudo env "PATH=$(pwd)/jre/bin:$PATH" ./SaferPayments.bin -i silent
+
+# Create user and group to run safer payments
+# sudo adduser 
 
 # Run safer payments postrequisites
 # cp -R /installationPath/factory_reset/* /instancePath 
 # chown -R SPUser:SPUserGroup /instancePath
+
+# Configure safer payments as a service
+
+# On primary
+
+# Write custom /instancePath/cfg/cluster.iris to primary node
+# Copy instancePath/* to other nodes
 
 # Shutdown node if standby
 if [[ $TYPE = "standby" ]]; then
