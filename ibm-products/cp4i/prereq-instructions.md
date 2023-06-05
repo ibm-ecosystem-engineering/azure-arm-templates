@@ -54,6 +54,7 @@ Refer [here](https://jqlang.github.io/jq/download/) for details on installing th
     az provider register -n Microsoft.Compute --wait
     az provider register -n Microsoft.Storage --wait
     az provider register -n Microsoft.Authorization --wait
+    az provider register -n Microsoft.Network --wait
     ```
 
 6. Set the base variables to be used later.
