@@ -3,6 +3,30 @@
     "handler": "Microsoft.Azure.CreateUIDef",
     "version": "0.1.2-preview",
     "parameters": {
+		"config": {
+			"isWizard": true,
+			"basics": {
+				"resourceGroup": {
+					"constraints": {
+						"validations": [
+							{
+								"permission": "Microsoft.ManagedIdentity/userAssignedIdentities/create",
+								"message": "Must be able to create a user assigned identity in the resource group"
+							}
+						]
+					},
+					"allowExisting": true
+				},
+				"location": {
+					"visible": false,
+					"resourceTypes": [
+						"Microsoft.Resources/deploymentScripts",
+						"Microsoft.ManagedIdentity/userAssignedIdentities",
+						"Microsoft.Storage/storageAccounts"
+					]
+				}
+			}
+		},
         "basics": [
             {
                 "name": "namePrefix",
