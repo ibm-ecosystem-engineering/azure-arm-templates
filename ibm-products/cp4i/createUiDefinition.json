@@ -79,7 +79,7 @@
 						},
 						"constraints": {
 							"required": true,
-							"regex": "^[a-zA-Z0-9.-_]{100,}$",
+							"regex": "^[a-zA-Z0-9._-]{100,}$",
 							"validationMessage": "Key must be at least 100 characters long, contain only numbers, letters, underscores, dots and dashes"
                 		},
 						"options": {
