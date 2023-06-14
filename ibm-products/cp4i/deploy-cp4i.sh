@@ -55,7 +55,7 @@ PN_CATALOG_IMAGE="icr.io/cpopen/ibm-integration-platform-navigator-catalog@sha25
 PN_OPERATOR_CHANNEL="v6.0"
 CS_CASE_VERSION="1.15.12"
 CS_CATALOG_IMAGE="icr.io/cpopen/ibm-common-service-catalog@sha256:fbf8ef961f3ff3c98ca4687f5586741ea97085ab5b78691baa056a5d581eecf5"
-CS_OPERATOR_CHANNEL="v3.19"
+CS_OPERATOR_CHANNEL="v3"
 
 # APIC
 APIC_CASE_VERSION="4.0.4"
