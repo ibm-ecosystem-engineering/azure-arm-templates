@@ -83,7 +83,7 @@ ES_OPERATOR_CHANNEL="v3.2"
 # Operations Dashboard
 OD_CASE_VERSION="2.6.11"
 OD_CATALOG_IMAGE="icr.io/cpopen/ibm-integration-operations-dashboard-catalog@sha256:756c4e3aa31c9ee9641dcdac89566d8f3a78987160d75ab010a7e0eadb91a873"
-OD_OPERATOR_CHANNEL="v2.6"
+OD_OPERATOR_CHANNEL="v2.6-lts"
 
 # Automation Assets
 AA_CASE_VERSION="1.5.9"
