@@ -42,6 +42,9 @@ if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
 if [[ -z $ADMIN_USER ]]; then ADMIN_USER="azureuser"; fi
 if [[ -z $CREATE_ACR ]]; then CREATE_ACR=true; fi
+if [[ -z $PROFESSIONAL_REPO ]]; then PROFESSIONAL_REPO="cp.icr.io/cp/ibm-oms-enterprise"; fi
+if [[ -z $ENTERPRISE_REPO ]]; then ENTERPRISE_REPO="cp.icr.io/cp/ibm-oms-enterprise"; fi
+if [[ -z $VERSION ]]; then VERSION="10.0.2306.0-amd64"; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
@@ -619,6 +622,16 @@ spec:
       host: "${ARO_INGRESS}"
       ssl:
         enabled: false
+  callCenter:
+    icc: smcfs    
+    base:
+      replicaCount: 1
+      profile: ProfileMedium
+      envVars: EnvironmentVariables
+    extn:
+      replicaCount: 1
+      profile: ProfileMedium
+      envVars: EnvironmentVariables
   database:
     postgresql:
       dataSourceName: jdbc/OMDS
@@ -665,7 +678,7 @@ spec:
     elasticsearch:
       createDevInstance:
         profile: ProfileLarge
-    orderServiceVersion: 10.0.2303.0
+    orderServiceVersion: 10.0.2306.0
     profile: ProfileLarge
     replicaCount: 1
   image:
@@ -683,6 +696,13 @@ spec:
       imageName: orderservice
       repository: ${REPOSITORY}
       tag: ${TAG}
+    callCenter:
+      base:
+        repository: ${REPOSITORY}
+        tag: ${TAG}
+      extn:
+        repository: ${REPOSITORY}
+        tag: ${TAG}
     imagePullSecrets:
       - name: ibm-entitlement-key
   networkPolicy:
@@ -743,7 +763,7 @@ spec:
           minPoolSize: 10
           maxPoolSize: 25
         ingress:
-          contextRoots: [smcfs, sbc, sma, isccs, wsc, isf]
+          contextRoots: [smcfs, sbc, sma, isccs, wsc, isf, icc]
         threads:
           min: 10
           max: 25
