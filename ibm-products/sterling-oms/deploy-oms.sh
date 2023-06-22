@@ -45,7 +45,7 @@ if [[ -z $CREATE_ACR ]]; then CREATE_ACR=true; fi
 if [[ -z $PROFESSIONAL_REPO ]]; then PROFESSIONAL_REPO="cp.icr.io/cp/ibm-oms-professional"; fi
 if [[ -z $ENTERPRISE_REPO ]]; then ENTERPRISE_REPO="cp.icr.io/cp/ibm-oms-enterprise"; fi
 if [[ -z $VERSION ]]; then VERSION="10.0.2306.0"; fi
-if [[ -z $OPERATOR_VERSION ]]; then OPERATOR_VERSION="1.0.6"; fi
+if [[ -z $OPERATOR_VERSION ]]; then OPERATOR_VERSION="1.0"; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
