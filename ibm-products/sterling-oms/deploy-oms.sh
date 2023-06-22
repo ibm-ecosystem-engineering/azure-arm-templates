@@ -623,7 +623,7 @@ spec:
       ssl:
         enabled: false
   callCenter:
-    icc: smcfs    
+    bindingAppServerName: smcfs    
     base:
       replicaCount: 1
       profile: ProfileMedium
