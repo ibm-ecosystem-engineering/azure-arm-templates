@@ -42,6 +42,10 @@ if [[ -z $LICENSE ]]; then export LICENSE="decline"; fi
 if [[ -z $NEW_CLUSTER ]]; then NEW_CLUSTER="yes"; fi
 if [[ -z $ADMIN_USER ]]; then ADMIN_USER="azureuser"; fi
 if [[ -z $CREATE_ACR ]]; then CREATE_ACR=true; fi
+if [[ -z $PROFESSIONAL_REPO ]]; then PROFESSIONAL_REPO="cp.icr.io/cp/ibm-oms-professional"; fi
+if [[ -z $ENTERPRISE_REPO ]]; then ENTERPRISE_REPO="cp.icr.io/cp/ibm-oms-enterprise"; fi
+if [[ -z $VERSION ]]; then VERSION="10.0.2306.0"; fi
+if [[ -z $OPERATOR_VERSION ]]; then OPERATOR_VERSION="1.0"; fi
 
 # Default secrets
 if [[ -z $CONSOLEADMINPW ]]; then export CONSOLEADMINPW="$ADMIN_PASSWORD"; fi
@@ -55,18 +59,35 @@ if [[ -z $CASSANDRA_PASSWORD ]]; then export CASSANDRA_PASSWORD="$ADMIN_PASSWORD
 if [[ -z $ES_USERNAME ]]; then export ES_USERNAME="admin"; fi
 if [[ -z $ES_PASSWORD ]]; then export ES_PASSWORD="$ADMIN_PASSWORD"; fi
 
+# Set edition specific parameters
+export OMS_VERSION=$WHICH_OMS
+if [[ ${WHICH_OMS} == *"-pro-"* ]]; then
+    export EDITION="Professional"
+    export OPERATOR_NAME="ibm-oms-pro"
+    export OPERATOR_CSV="ibm-oms-pro.v${OPERATOR_VERSION}"
+    export REPOSITORY="${PROFESSIONAL_REPO}"
+    export TAG="${VERSION}-amd64"
+else
+    export EDITION="Enterprise"
+    export OPERATOR_NAME="ibm-oms-ent"
+    export OPERATOR_CSV="ibm-oms-ent.v${OPERATOR_VERSION}"
+    export REPOSITORY="${ENTERPRISE_REPO}"
+    export TAG="${VERSION}-amd64"
+fi
+
+# Output parameters to log file before proceeding
 log-output "INFO: ARO Cluster is $ARO_CLUSTER"
 log-output "INFO: RESOURCE_GRUP is $RESOURCE_GROUP"
 log-output "INFO: OMS_NAMESPACE is $OMS_NAMESPACE"
 log-output "INFO: ADMIN_USER is $ADMIN_USER"
-log-output "INFO: ADMIN_PASSWORD is set"
+if [[ -z $ADMIN_PASSWORD ]]; then log-output "INFO: ADMIN_PASSWORD is NOT set"; else log-output "INFO: ADMIN_PASSWORD is set"; fi
 log-output "INFO: WHICH_OMS is $WHICH_OMS"
 log-output "INFO: CREATE_ACR is $CREATE_ACR"
 log-output "INFO: ACR_NAME is $ACR_NAME"
 log-output "INFO: STORAGE_ACCOUNT_NAME is $STORAGE_ACCOUNT_NAME"
 log-output "INFO: FILE TYPE is $FILE_TYPE"
 log-output "INFO: SC_NAME is $SC_NAME"
-log-output "INFO: IBM_ENTITLEMENT_KEY is set"
+if [[ -z $IBM_ENTITLEMENT_KEY ]]; then log-output "ERROR: IBM_ENTITLEMENT_KEY is NOT set"; else log-output "INFO: IBM_ENTITLEMENT_KEY is set"; fi
 log-output "INFO: PSQL_HOST is $PSQL_HOST"
 log-output "INFO: WORKSPACE_DIR is $WORKSPACE_DIR"
 log-output "INFO: TMP_DIR is $TMP_DIR"
@@ -76,6 +97,11 @@ log-output "INFO: DB_NAME is $DB_NAME"
 log-output "INFO: SCHEMA_NAME is $SCHEMA_NAME"
 log-output "INFO: OM_INSTANCE_NAME is $OM_INSTANCE_NAME"
 log-output "INFO: LICENSE state is $LICENSE"
+log-output "INFO: VERSION is $VERSION"
+log-output "INFO: EDITION is $EDITION"
+log-output "INFO: REPOSITORY is $REPOSITORY"
+log-output "INFO: TAG is $TAG"
+log-output "INFO: OPERATOR_CSV is $OPERATOR_CSV"
 
 ######
 # Create working directories
@@ -347,16 +373,6 @@ fi
 ########
 # Install OMS Operator
 
-export OMS_VERSION=$WHICH_OMS
-
-if [[ ${WHICH_OMS} == *"-pro-"* ]]; then
-    export OPERATOR_NAME="ibm-oms-pro"
-    export OPERATOR_CSV="ibm-oms-pro.v1.0"
-else
-    export OPERATOR_NAME="ibm-oms-ent"
-    export OPERATOR_CSV="ibm-oms-ent.v1.0"
-fi
-
 # Create catalog source
 if [[ -z $(${BIN_DIR}/oc get catalogsource -n openshift-marketplace | grep ibm-sterling-oms) ]]; then
   log-output "INFO: Creating catalog source ibm-sterling-oms"
@@ -430,9 +446,9 @@ metadata:
   name: oms-operator
   namespace: $OMS_NAMESPACE
 spec:
-  channel: v1.0
+  channel: v${OPERATOR_VERSION}
   installPlanApproval: Automatic
-  name: $OPERATOR_NAME
+  name: ${OPERATOR_NAME}
   source: ibm-sterling-oms
   sourceNamespace: openshift-marketplace
 EOF
@@ -589,13 +605,6 @@ EOF
     # Create OMEnvironment instance
     log-output "INFO: Creating new OMEnvironment instance ${OM_INSTANCE_NAME}"
 
-    if [[ $OPERATOR_NAME="ibm-oms-pro" ]]; then
-      export REPOSITORY="cp.icr.io/cp/ibm-oms-professional"
-      export TAG="10.0.2209.1-amd64"
-    else
-      export REPOSITORY="cp.icr.io/cp/ibm-oms-enterprise"
-      export TAG="10.0.2209.1-amd64"
-    fi
     export ARO_INGRESS=$(az aro show -g $RESOURCE_GROUP -n $ARO_CLUSTER --query consoleProfile.url -o tsv | sed -e 's#^https://console-openshift-console.##; s#/##')
     cleanup_file ${WORKSPACE_DIR}/omenvironment.yaml
     cat << EOF >> ${WORKSPACE_DIR}/omenvironment.yaml
@@ -619,6 +628,16 @@ spec:
       host: "${ARO_INGRESS}"
       ssl:
         enabled: false
+  callCenter:
+    bindingAppServerName: smcfs    
+    base:
+      replicaCount: 1
+      profile: ProfileMedium
+      envVars: EnvironmentVariables
+    extn:
+      replicaCount: 1
+      profile: ProfileMedium
+      envVars: EnvironmentVariables
   database:
     postgresql:
       dataSourceName: jdbc/OMDS
@@ -665,7 +684,7 @@ spec:
     elasticsearch:
       createDevInstance:
         profile: ProfileLarge
-    orderServiceVersion: 10.0.2303.0
+    orderServiceVersion: ${VERSION}
     profile: ProfileLarge
     replicaCount: 1
   image:
@@ -683,6 +702,13 @@ spec:
       imageName: orderservice
       repository: ${REPOSITORY}
       tag: ${TAG}
+    callCenter:
+      base:
+        repository: ${REPOSITORY}
+        tag: ${TAG}
+      extn:
+        repository: ${REPOSITORY}
+        tag: ${TAG}
     imagePullSecrets:
       - name: ibm-entitlement-key
   networkPolicy:
@@ -743,7 +769,7 @@ spec:
           minPoolSize: 10
           maxPoolSize: 25
         ingress:
-          contextRoots: [smcfs, sbc, sma, isccs, wsc, isf]
+          contextRoots: [smcfs, sbc, sma, isccs, wsc, isf, icc]
         threads:
           min: 10
           max: 25
