@@ -13,6 +13,7 @@ It will deploy operators for the following CP4I components:
 - Platform Navigator
 - Aspera
 - App Connect
+- MQ
 - Event Streams
 - Asset Repository
 - Data Power
