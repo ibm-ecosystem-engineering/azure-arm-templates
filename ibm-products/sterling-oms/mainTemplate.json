@@ -968,12 +968,17 @@
         },
         "aroClusterCredentials": {
             "type": "string",
-            "value": "Use \"az aro list-credentials -g resourceGroup -n clusterName\" to obtain credentials"
+            "value": "[concat('Use \"az aro list-credentials -g ',resourceGroup().name,' -n ',reference(resourceId('Microsoft.Resources/deployments','aro'),'2021-04-01').outputs['clusterName'].value,'\" to obtain credentials')]"
         },
         "orderHubURL": {
             "type": "string",
             "condition": "[equals(parameters('acceptLicense'),'accept')]",
-            "value": "[uri(concat('https://orderhub-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io'),'/order-management')]"
+            "value": "[uri(concat('https://smcfs-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io'),'/order-management')]"
+        },
+        "callcenterURL": {
+            "type": "string",
+            "condition": "[equals(parameters('acceptLicense'),'accept')]",
+            "value": "[uri(concat('https://smcfs-',parameters('omsNamespace'),'.apps.',parameters('domain'),'.',parameters('location'),'.aroapp.io'),'/call-center')]"
         },
         "developerVMName": {
             "type": "string",
