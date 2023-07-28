@@ -1,0 +1,402 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "Azure ARM Template to deploy a Red Hat OpenShift Installer Provisioned Infrastructure (IPI) cluster."
+    },
+    "parameters": {
+        "namePrefix": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix for resource names. Must start with a letter and be 3 to 10 characters."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[ resourceGroup().location ]",
+            "metadata": {
+                "description": "Azure region for the deployment"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "[ concat( toLower( parameters('namePrefix') ), substring( uniqueString(resourceGroup().id), 1, 7 ) ) ]",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Storage account name for the deployment scripts"
+            }
+        },
+        "managedIdName": {
+            "type": "string",
+            "defaultValue": "[ concat( parameters('namePrefix'), '-id' ) ]",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Name of the managed identity for the resource group"
+            }
+        },
+        "deployPrereqs": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to run the script prerequisites (for debug only)"
+            }
+        },
+        "deployVNet": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create the virtual network (for debug only)"
+            }
+        },
+        "deployOCP": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to deploy the OpenShift cluster (for debug only)"
+            }
+        },
+        "clientId": {
+            "type": "string",
+            "metadata": {
+                "description": "Service principal id"
+            }
+        },
+        "clientSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Service principal secret"
+            }
+        },
+        "baseDomain": {
+            "type": "string",
+            "metadata": {
+                "description": "Base domain suffix for OpenShift cluster."
+            }
+        },
+        "ocpVersion": {
+            "type": "string",
+            "defaultValue": "4.10",
+            "metadata": {
+                "description": "Openshift version to install"
+            }
+        },
+        "rgRoleGuid": {
+            "type": "string",
+            "defaultValue": "[newGuid()]",
+            "metadata": {
+                "description": "forceUpdateTag property, used to force the execution of the script resource when no other properties have changed."
+            }
+        },
+        "vnetName": {
+            "type": "string",
+            "defaultValue": "vnet",
+            "metadata": {
+                "description": "Name of the virtual network"
+            }
+        },
+        "vnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/20",
+            "metadata": {
+                "description": "CIDR for Virtual Network"
+            }
+        },
+        "controlSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.0.0/24",
+            "metadata": {
+                "description": "CIDR for the control subnet"
+            }
+        },
+        "controlSubnetName": {
+            "type": "string",
+            "defaultValue": "control-subnet",
+            "metadata": {
+                "description": "Name of the OpenShift control subnet"
+            }
+        },
+        "workerSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.1.0/24",
+            "metadata": {
+                "description": "CIDR for the worker subnet"
+            }
+        },
+        "workerSubnetName": {
+            "type": "string",
+            "defaultValue": "worker-subnet",
+            "metadata": {
+                "description": "Name of the OpenShift worker subnet"
+            }
+        }
+    },
+    "variables": {
+
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "scriptPrerequisites",
+            "condition": "[parameters('deployPrereqs')]",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "managedIdName": {
+                        "value": "[parameters('managedIdName')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "storageAccountName": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "managedIdName": {
+                            "type": "string"
+                        }
+                    },
+                    "variables": {
+                        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                        "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Storage/storageAccounts",
+                            "apiVersion": "2023-01-01",
+                            "name": "[parameters('storageAccountName')]",
+                            "location": "[parameters('location')]",
+                            "sku": {
+                                "name": "Standard_LRS",
+                                "tier": "Standard"
+                            },
+                            "kind": "StorageV2",
+                            "properties": {
+                                "accessTier": "Hot"
+                            }
+                        },
+                        {
+                            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+                            "apiVersion": "2018-11-30",
+                            "name": "[parameters('managedIdName')]",
+                            "location": "[parameters('location')]"
+                        },
+                        {
+                            "type": "Microsoft.Authorization/roleAssignments",
+                            "apiVersion": "2022-04-01",
+                            "name": "[variables('roleDefinitionName')]",
+                            "dependsOn": [
+                                "[parameters('managedIdName')]"
+                            ],
+                            "properties": {
+                                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
+                                "scope": "[resourceGroup().id]",
+                                "principalType": "ServicePrincipal"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-07-01",
+            "condition": "[parameters('deployVNet')]",
+            "name": "[parameters('vnetName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vnetCIDR')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('controlSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('controlSubnetCIDR')]",
+                            "privateLinkServiceNetworkPolicies": "Disabled",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                },
+                                {
+                                    "service": "Microsoft.Storage"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "[parameters('workerSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('workerSubnetCIDR')]",
+                            "serviceEndpoints": [
+                                {
+                                    "service": "Microsoft.ContainerRegistry"
+                                },
+                                {
+                                    "service": "Microsoft.Storage"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "deploy-ocp-ipi",
+            "condition": "[parameters('deployOCP')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[parameters('namePrefix')]"
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "storageAccountName": {
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    "managedIdName": {
+                        "value": "[parameters('managedIdName')]"
+                    },
+                    "rgRoleGuid": {
+                        "value": "[parameters('rgRoleGuid')]"
+                    },
+                    "clientId": {
+                        "value": "[parameters('clientId')]"
+                    },
+                    "clientSecret": {
+                        "value": "[parameters('clientSecret')]"
+                    },
+                    "baseDomain": {
+                        "value": "[parameters('baseDomain')]"
+                    },
+                    "ocpVersion": {
+                        "value": "[parameters('ocpVersion')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "namePrefix": {
+                            "type": "string"
+                        },
+                        "rgRoleGuid": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "storageAccountName": {
+                            "type": "string"
+                        },
+                        "managedIdName": {
+                            "type": "string"
+                        },
+                        "clientId": {
+                            "type": "string"
+                        },
+                        "clientSecret": {
+                            "type": "securestring"
+                        },
+                        "baseDomain": {
+                            "type": "string"
+                        },
+                        "ocpVersion": {
+                            "type": "string"
+                        }
+                    },
+                    "variables": {
+                        "azureCliVersion": "2.45.0",
+                        "containergroupName": "[ concat( parameters('namePrefix'), '-cg') ]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Resources/deploymentScripts",
+                            "apiVersion": "2020-10-01",
+                            "comments": "Deploys Sterling OMS on ARO cluster",
+                            "name": "ocp-deploment-script",
+                            "location": "[parameters('location')]",
+                            "identity": {
+                                "type": "UserAssigned",
+                                "userAssignedIdentities": {
+                                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
+                                }
+                            },
+                            "kind": "AzureCLI",
+                            "properties": {
+                                "forceUpdateTag": "[parameters('rgRoleGuid')]",
+                                "containerSettings": {
+                                    "containerGroupName": "[variables('containerGroupName')]"
+                                },
+                                "storageAccountSettings": {
+                                    "storageAccountName": "[parameters('storageAccountName')]",
+                                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
+                                },
+                                "azCliVersion": "[variables('azureCliVersion')]",  
+                                "environmentVariables": [
+                                    {
+                                        "name": "CLIENT_ID",
+                                        "value": "[parameters('clientId')]"
+                                    },
+                                    {
+                                        "name": "CLIENT_SECRET",
+                                        "secureValue": "[parameters('clientSecret')]"
+                                    },
+                                    {
+                                        "name": "BASE_DOMAIN",
+                                        "value": "[parameters('baseDomain')]"
+                                    },
+                                    {
+                                        "name": "BIN_DIR",
+                                        "value": "/usr/bin"
+                                    },
+                                    {
+                                        "name": "VERSION",
+                                        "value": "[parameters('ocpVersion')]"
+                                    }
+                                ],
+                                "scriptContent": "while true; do sleep 30; done;",
+                                "timeout": "PT120M",
+                                "cleanupPreference": "OnSuccess",
+                                "retentionInterval": "P1D"
+                            }
+                        }            
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {
+
+    }
+}
