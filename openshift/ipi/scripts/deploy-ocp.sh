@@ -109,6 +109,8 @@ if [[ -z $RESOURCE_GROUP ]]; then
     if (( $? != 0 )) || (( $(echo ${resource_groups} | jq '. | length') != 1 )); then
         log-output "ERROR: Unable to determine resource group. Please set as environment variable."
         exit 1
+    else
+        RESOURCE_GROUP="$(echo ${resource_groups} | jq -r '.[0]')"
     fi
 fi
 log-output "INFO: Resource group set to $RESOURCE_GROUP"
@@ -214,4 +216,13 @@ pullSecret: '${PULL_SECRET}'
 sshKey: '${PUBLIC_SSH_KEY}'
 EOF
 
+
+###########
+# Create OpenShift cluster
+
+
+##########
+# Output cluster details
+
+##### DEBUG ONLY
 while true; do sleep 30; done
