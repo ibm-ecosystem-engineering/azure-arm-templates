@@ -30,6 +30,7 @@ if [[ -z $PUBLIC_SSH_KEY ]]; then ENV_VAR_NOT_SET="PUBLIC_SSH_KEY"; fi
 if [[ -z $VNET_NAME ]]; then ENV_VAR_NOT_SET="VNET_NAME"; fi
 if [[ -z $WORKER_SUBNET_NAME ]]; then ENV_VAR_NOT_SET="WORKER_SUBNET_NAME"; fi
 if [[ -z $CONTROL_SUBNET_NAME ]]; then ENV_VAR_NOT_SET="CONTROL_SUBNET_NAME"; fi
+if [[ -z $MACHINE_CIDR ]]; then ENV_VAR_NOT_SET="MACHINE_CIDR"; fi
 
 if [[ -n $ENV_VAR_NOT_SET ]]; then
     log-output "ERROR: $ENV_VAR_NOT_SET not set. Please set and retry."
@@ -56,7 +57,6 @@ if [[ -z $WORKER_NODE_QTY ]]; then WORKER_NODE_QTY=3; fi
 if [[ -z $CLUSTER_NAME ]]; then CLUSTER_NAME=$(cat /dev/urandom | tr -dc '[:alpha:]' | fold -w ${1:-8} | head -n 1); fi
 if [[ -z $CLUSTER_CIDR ]]; then CLUSTER_CIDR="10.128.0.0/14"; fi
 if [[ -z $CLUSTER_HOST_PREFIX ]]; then CLUSTER_HOST_PREFIX="23"; fi
-if [[ -z $MACHINE_CIDR ]]; then MACHINE_CIDR="10.0.0.0/20"; fi
 if [[ -z $OCP_NETWORK_TYPE ]]; then OCP_NETWORK_TYPE="OpenShiftSDN"; fi
 if [[ -z $SERVICE_NETWORK_CIDR ]]; then SERVICE_NETWORK_CIDR="172.30.0.0/16"; fi
 if [[ -z $OCP_OUTBOUND_TYPE ]]; then OCP_OUTBOUND_TYPE="Loadbalancer"; fi

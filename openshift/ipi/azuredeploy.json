@@ -80,11 +80,29 @@
                 "description": "Base domain suffix for OpenShift cluster."
             }
         },
+        "baseDomainRG": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource group that contains the DNS zone for the base domain"
+            }
+        },
         "ocpVersion": {
             "type": "string",
             "defaultValue": "4.10",
             "metadata": {
                 "description": "Openshift version to install"
+            }
+        },
+        "pullSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Red Hat OpenShift Pull Secret"
+            }
+        },
+        "publicSshKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Public SSH Key for the OpenShift nodes"
             }
         },
         "rgRoleGuid": {
@@ -135,10 +153,17 @@
             "metadata": {
                 "description": "Name of the OpenShift worker subnet"
             }
+        },
+        "branch": {
+            "type": "string",
+            "defaultValue": "main",
+            "metadata": {
+                "description": "Github branch for linked deployments."
+            }
         }
     },
     "variables": {
-
+        "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]"
     },
     "resources": [
         {
@@ -304,6 +329,30 @@
                     },
                     "ocpVersion": {
                         "value": "[parameters('ocpVersion')]"
+                    },
+                    "baseUrl": {
+                        "value": "[variables('baseUrl')]" 
+                    },
+                    "baseDomainRG": {
+                        "value": "[parameters('baseDomainRG')]" 
+                    },
+                    "pullSecret": {
+                        "value": "[parameters('pullSecret')]" 
+                    },
+                    "publicSshKey": {
+                        "value": "[parameters('publicSshKey')]" 
+                    },
+                    "vnetName": {
+                        "value": "[parameters('vnetName')]"
+                    },
+                    "vnetCIDR": {
+                        "value": "[parameters('vnetCIDR')]"
+                    },
+                    "controlSubnetName": {
+                        "value": "[parameters('controlSubnetName')]"
+                    },
+                    "workerSubnetName": {
+                        "value": "[parameters('workerSubnetName')]"
                     }
                 },
                 "template": {
@@ -335,6 +384,30 @@
                             "type": "string"
                         },
                         "ocpVersion": {
+                            "type": "string"
+                        },
+                        "baseDomainRG": {
+                            "type": "string"
+                        },
+                        "pullSecret": {
+                            "type": "secureString"
+                        },
+                        "publicSshKey": {
+                            "type": "securestring"
+                        },
+                        "vnetName": {
+                            "type": "string"
+                        },
+                        "vnetCIDR": {
+                            "type": "string"
+                        },
+                        "controlSubnetName": {
+                            "type": "string"
+                        },
+                        "workerSubnetName": {
+                            "type": "string"
+                        },
+                        "baseUrl": {
                             "type": "string"
                         }
                     },
@@ -380,6 +453,34 @@
                                         "value": "[parameters('baseDomain')]"
                                     },
                                     {
+                                        "name": "BASE_DOMAIN_RESOURCE_GROUP",
+                                        "value": "[parameters('baseDomainRG')]"
+                                    },
+                                    {
+                                        "name": "PULL_SECRET",
+                                        "secureValue": "[parameters('pullSecret')]"
+                                    },
+                                    {
+                                        "name": "PUBLIC_SSH_KEY",
+                                        "secureValue": "[parameters('publicSshKey')]"
+                                    },
+                                    {
+                                        "name": "VNET_NAME",
+                                        "value": "[parameters('vnetName')]"
+                                    },
+                                    {
+                                        "name": "MACHINE_CIDR",
+                                        "value": "[parameters('vnetCIDR')]"
+                                    },
+                                    {
+                                        "name": "WORKER_SUBNET_NAME",
+                                        "value": "[parameters('workerSubnetName')]"
+                                    },
+                                    {
+                                        "name": "CONTROL_SUBNET_NAME",
+                                        "value": "[parameters('controlSubnetName')]"
+                                    },
+                                    {
                                         "name": "BIN_DIR",
                                         "value": "/usr/bin"
                                     },
@@ -388,7 +489,10 @@
                                         "value": "[parameters('ocpVersion')]"
                                     }
                                 ],
-                                "scriptContent": "while true; do sleep 30; done;",
+                                    "primaryScriptUri": "[uri(parameters('baseUrl'),'openshift/ipi/scripts/deploy-ocp.sh')]",
+                                    "supportingScriptUris": [
+                                        "[uri(parameters('baseUrl'),'openshift/ipi/scripts/common.sh')]"
+                                ],
                                 "timeout": "PT120M",
                                 "cleanupPreference": "OnSuccess",
                                 "retentionInterval": "P1D"
