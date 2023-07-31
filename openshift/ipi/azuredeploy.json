@@ -4,6 +4,9 @@
     "metadata": {
         "description": "Azure ARM Template to deploy a Red Hat OpenShift Installer Provisioned Infrastructure (IPI) cluster."
     },
+    // add KeyVault deployment
+    // add ssh key creation if not provided
+    // store ssh keys and OCP credentials in key vault.
     "parameters": {
         "namePrefix": {
             "type": "string",

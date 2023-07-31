@@ -211,5 +211,7 @@ platform:
     controlPlaneSubnet: ${MASTER_SUBNET_NAME} 
     computeSubnet: ${WORKER_SUBNET_NAME} 
 pullSecret: '${PULL_SECRET}' 
-sshKey: ${PUBLIC_SSH_KEY} 
+sshKey: '${PUBLIC_SSH_KEY}'
 EOF
+
+while true; do sleep 30; done

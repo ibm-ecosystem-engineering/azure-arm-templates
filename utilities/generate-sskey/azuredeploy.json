@@ -1,0 +1,135 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "namePrefix": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "metadata": {
+                "description": "Prefix for resource names. Must start with a letter and be 3 to 10 characters."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[ resourceGroup().location ]",
+            "metadata": {
+                "description": "Azure region for the deployment"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "[ concat( toLower( parameters('namePrefix') ), substring( uniqueString(resourceGroup().id), 1, 7 ) ) ]",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Storage account name for the deployment scripts"
+            }
+        },
+        "managedIdName": {
+            "type": "string",
+            "defaultValue": "[ concat( parameters('namePrefix'), '-id' ) ]",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Name of the managed identity for the resource group"
+            }
+        },
+        "createManagedId": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to create a new managed identity"
+            }
+        },
+        "rgRoleGuid": {
+            "type": "string",
+            "defaultValue": "[newGuid()]",
+            "metadata": {
+                "description": "forceUpdateTag property, used to force the execution of the script resource when no other properties have changed."
+            }
+        }
+    },
+    "variables": {
+        "containerGroupName": "[concat(parameters('namePrefix'), '-cg')]",
+        "azureCliVersion": "2.45.0",
+        "scriptName": "[concat(parameters('namePrefix'),'-script')]",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-01-01",
+            "name": "[parameters('storageAccountName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "accessTier": "Hot"
+            }
+        },
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "condition": "[parameters('createManagedId')]",
+            "name": "[parameters('managedIdName')]",
+            "location": "[parameters('location')]"
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[variables('roleDefinitionName')]",
+            "dependsOn": [
+                "[parameters('managedIdName')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "comments": "Deploys Sterling OMS on ARO cluster",
+            "name": "[variables('scriptName')]",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
+                }
+            },
+            "kind": "AzureCLI",
+            "properties": {
+                "forceUpdateTag": "[parameters('rgRoleGuid')]",
+                "containerSettings": {
+                    "containerGroupName": "[variables('containerGroupName')]"
+                },
+                "storageAccountSettings": {
+                    "storageAccountName": "[parameters('storageAccountName')]",
+                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
+                },
+                "azCliVersion": "[variables('azureCliVersion')]",  
+                "environmentVariables": [
+                    {
+                        "name": "RESOURCE_GROUP",
+                        "value": "[resourceGroup().name]"
+                    }
+                ],
+                "scriptContent": "while true; do sleep 30; done;",
+                "timeout": "PT120M",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            }
+        }
+    ],
+    "outputs": {
+
+    }
+}
