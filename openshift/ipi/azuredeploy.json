@@ -111,6 +111,27 @@
                 "description": "Resource group that contains the DNS zone for the base domain"
             }
         },
+        "masterNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D8s_v3",
+            "metadata": {
+                "description": "VM size for the master nodes"
+            }
+        },
+        "workerNodeSize": {
+            "type": "string",
+            "defaultValue": "Standard_D4s_v3",
+            "metadata": {
+                "description": "VM size for the worker nodes"
+            }
+        },
+        "workerNodeQty": {
+            "type": "int",
+            "defaultValue": 3,
+            "metadata": {
+                "description": "Number of worker nodes to deploy"
+            }
+        },
         "ocpVersion": {
             "type": "string",
             "defaultValue": "4.10",
@@ -699,6 +720,15 @@
                     },
                     "workerSubnetName": {
                         "value": "[parameters('workerSubnetName')]"
+                    },
+                    "masterNodeSize": {
+                        "value": "[parameters('masterNodeSize')]"
+                    },
+                    "workerNodeSize": {
+                        "value": "[parameters('workerNodeSize')]"
+                    },
+                    "workerNodeQty": {
+                        "value": "[parameters('workerNodeQty')]"
                     }
                 },
                 "template": {
@@ -738,6 +768,15 @@
                         },
                         "ocpVersion": {
                             "type": "string"
+                        },
+                        "masterNodeSize": {
+                            "type": "string"
+                        },
+                        "workerNodeSize": {
+                            "type": "string"
+                        },
+                        "workerNodeQty": {
+                            "type": "int"
                         },
                         "baseDomainRG": {
                             "type": "string"
@@ -967,6 +1006,18 @@
                                         "secureValue": "[parameters('publicSshKey')]"
                                     },
                                     {
+                                        "name": "MASTER_NODE_TYPE",
+                                        "value": "[parameters('masterNodeSize')]"
+                                    },
+                                    {
+                                        "name": "WORKER_NODE_TYPE",
+                                        "value": "[parameters('workerNodeSize')]"
+                                    },
+                                    {
+                                        "name": "WORKER_NODE_QTY",
+                                        "value": "[parameters('workerNodeQty')]"
+                                    },
+                                    {
                                         "name": "VNET_NAME",
                                         "value": "[parameters('vnetName')]"
                                     },
@@ -1000,7 +1051,38 @@
                                 "retentionInterval": "P1D"
                             }
                         }            
-                    ]
+                    ],
+                    "outputs": {
+                        "consoleURL": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.consoleURL ]"
+                        },
+                        "apiServer": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.apiServer ]"
+                        },
+                        "adminUser": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.adminUser ]"
+                        },
+                        "adminPassword": {
+                            "type": "securestring",
+                            "condition": true,    // TO DO: Add condition on whether key vault is set
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.adminPassword ]"
+                        },
+                        "clusterName": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.clusterName ]"
+                        },
+                        "clusterId": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.clusterId ]"
+                        },
+                        "infraId": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.infraId ]"
+                        }
+                    }
                 }
             }
         }
