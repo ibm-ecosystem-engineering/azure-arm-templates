@@ -54,7 +54,7 @@ if [[ -z $WORKER_NODE_TYPE ]]; then WORKER_NODE_TYPE="Standard_D4s_v3"; fi
 if [[ -z $WORKER_NODE_DISK_SIZE ]]; then WORKER_NODE_DISK_SIZE=120; fi
 if [[ -z $WORKER_NODE_DISK_TYPE ]]; then WORKER_NODE_DISK_TYPE="Premium_LRS"; fi
 if [[ -z $WORKER_NODE_QTY ]]; then WORKER_NODE_QTY=3; fi
-if [[ -z $CLUSTER_NAME ]]; then CLUSTER_NAME=$(cat /dev/urandom | tr -dc '[:alpha:]' | fold -w ${1:-8} | head -n 1); fi
+if [[ -z $CLUSTER_NAME ]]; then CLUSTER_NAME=$(cat /dev/urandom | tr -dc '[:alpha:]' | fold -w ${1:-8} | head -n 1 | tr '[:upper:]' '[:lower:]'); fi
 if [[ -z $CLUSTER_CIDR ]]; then CLUSTER_CIDR="10.128.0.0/14"; fi
 if [[ -z $CLUSTER_HOST_PREFIX ]]; then CLUSTER_HOST_PREFIX="23"; fi
 if [[ -z $OCP_NETWORK_TYPE ]]; then OCP_NETWORK_TYPE="OpenShiftSDN"; fi
@@ -162,7 +162,8 @@ if [[ -f ${WORKSPACE_DIR}/install-config.json ]]; then
 fi
 
 log-output "INFO: Creating OpenShift install configuration"
-cat << EOF >> ${WORKSPACE_DIR}/install-config.json
+if [[ -f ${WORKSPACE_DIR}/install-config.yaml ]]; then rm install-config.yaml; fi
+cat << EOF >> ${WORKSPACE_DIR}/install-config.yaml
 apiVersion: v1
 baseDomain: ${BASE_DOMAIN} 
 controlPlane: 
@@ -210,7 +211,7 @@ platform:
     cloudName: AzurePublicCloud
     networkResourceGroupName: ${RESOURCE_GROUP} 
     virtualNetwork: ${VNET_NAME} 
-    controlPlaneSubnet: ${MASTER_SUBNET_NAME} 
+    controlPlaneSubnet: ${CONTROL_SUBNET_NAME} 
     computeSubnet: ${WORKER_SUBNET_NAME} 
 pullSecret: '${PULL_SECRET}' 
 sshKey: '${PUBLIC_SSH_KEY}'
