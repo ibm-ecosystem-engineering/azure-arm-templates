@@ -37,8 +37,19 @@
         },
         "vaultName": {
             "type": "string",
+            "defaultValue": "[ concat( parameters('namePrefix'), '-', substring( uniqueString(resourceGroup().id), 1, 5 ), '-keyvault' ) ]",
             "metadata": {
                 "description": "Name of the key vault in which to store the new key pair"
+            }
+        },
+        "vaultSku": {
+            "type": "object",
+            "defaultValue": {
+                "name": "standard",
+                "family": "A"
+            },
+            "metadata": {
+                "description": "SKU for the Key Vault"
             }
         },
         "keyName": {
@@ -62,6 +73,13 @@
                 "description": "Flag to create the storage account"
             }
         },
+        "createVault": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to create a new Key Vault"
+            }
+        },
         "rgRoleGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
@@ -75,9 +93,37 @@
         "azureCliVersion": "2.45.0",
         "scriptName": "[concat(parameters('namePrefix'),'-create-ssh-script')]",
         "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "roleDefinitionIdKeyVault": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '00482a5a-887f-4fb3-b363-3b7fe8e74483')]",
         "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
     },
     "resources": [
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2022-11-01",
+            "condition": "[ parameters('createVault') ]",
+            "name": "[parameters('vaultName')]",
+            "location": "[parameters('location')]",
+            "properties":{
+                "enableRbacAuthorization": true,
+                "tenantId": "[tenant().tenantId]",
+                "sku": "[parameters('vaultSku')]"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2020-10-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]"
+            ],
+            "scope": "[concat('Microsoft.KeyVault/vaults/', parameters('vaultName'))]",
+            "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionIdKeyVault'), resourceGroup().id)]",
+            "properties": {
+                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
+                "principalType": "ServicePrincipal"
+                }       
+        },
         {
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2023-01-01",
