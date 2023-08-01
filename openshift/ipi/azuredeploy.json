@@ -4,9 +4,6 @@
     "metadata": {
         "description": "Azure ARM Template to deploy a Red Hat OpenShift Installer Provisioned Infrastructure (IPI) cluster."
     },
-    // add KeyVault deployment
-    // add ssh key creation if not provided
-    // store ssh keys and OCP credentials in key vault.
     "parameters": {
         "namePrefix": {
             "type": "string",
@@ -46,6 +43,13 @@
             "defaultValue": "[ concat( parameters('namePrefix'), '-', substring( uniqueString(resourceGroup().id), 1, 5 ), '-keyvault' ) ]",
             "metadata": {
                 "description": "Name of the key vault to store credentials"
+            }
+        },
+        "keyName": {
+            "type": "string",
+            "defaultValue": "[ concat(parameters('namePrefix'), '-sshkey') ]",
+            "metadata": {
+                "description": "Name of the secret to create in the key vault"
             }
         },
         "deployPrereqs": {
@@ -88,6 +92,12 @@
                 "description": "Service principal secret"
             }
         },
+        "clientObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "Object id for the service principal. Use \"az ad sp list --display-name <service_principal_name> --query '[0].id' -o tsv\""
+            }
+        },
         "baseDomain": {
             "type": "string",
             "metadata": {
@@ -115,11 +125,19 @@
         },
         "publicSshKey": {
             "type": "securestring",
+            "defaultValue": "",
             "metadata": {
                 "description": "Public SSH Key for the OpenShift nodes"
             }
         },
-        "rgRoleGuid": {
+        "rgRoleGuidOcp": {
+            "type": "string",
+            "defaultValue": "[newGuid()]",
+            "metadata": {
+                "description": "forceUpdateTag property, used to force the execution of the script resource when no other properties have changed."
+            }
+        },
+        "rgRoleGuidSsh": {
             "type": "string",
             "defaultValue": "[newGuid()]",
             "metadata": {
@@ -308,6 +326,9 @@
             "apiVersion": "2022-09-01",
             "name": "createKeyVault",
             "condition": "[parameters('deployKeyVault')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]"
+            ],
             "properties": {
                 "mode": "Incremental",
                 "expressionEvaluationOptions": {
@@ -322,6 +343,9 @@
                     },
                     "vaultName": {
                         "value": "[parameters('vaultName')]"
+                    },
+                    "createManagedIdentity": {
+                        "value": false
                     }
                 },
                 "template": {
@@ -410,10 +434,210 @@
         {
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2022-09-01",
+            "name": "create-ssh-keys",
+            "condition": "[ equals( parameters('publicSshKey'), '') ]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]",
+                "[resourceId('Microsoft.Resources/deployments', 'createKeyVault')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[parameters('namePrefix')]"
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "storageAccountName": {
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    "managedIdName": {
+                        "value": "[parameters('managedIdName')]"
+                    },
+                    "keyName": {
+                        "value": "[parameters('keyName')]"
+                    },
+                    "createManagedId": {
+                        "value": false 
+                    },
+                    "createStorageAccount": {
+                        "value": false
+                    },
+                    "rgRoleGuid": {
+                        "value": "[parameters('rgRoleGuidSsh')]"
+                    },
+                    "vaultName": {
+                        "value": "[parameters('vaultName')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "namePrefix": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "storageAccountName": {
+                            "type": "string"
+                        },
+                        "managedIdName": {
+                            "type": "string"
+                        },
+                        "vaultName": {
+                            "type": "string"
+                        },
+                        "keyName": {
+                            "type": "string"
+                        },
+                        "createManagedId": {
+                            "type": "bool"
+                        },
+                        "createStorageAccount": {
+                            "type": "bool"
+                        },
+                        "rgRoleGuid": {
+                            "type": "string"
+                        }
+                    },
+                    "variables": {
+                        "containerGroupName": "[concat(parameters('namePrefix'), '-create-ssh-cg')]",
+                        "azureCliVersion": "2.45.0",
+                        "scriptName": "[concat(parameters('namePrefix'),'-create-ssh-script')]",
+                        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                        "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName')), variables('roleDefinitionId'), resourceGroup().id)]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Storage/storageAccounts",
+                            "apiVersion": "2023-01-01",
+                            "name": "[parameters('storageAccountName')]",
+                            "condition": "[parameters('createStorageAccount')]",
+                            "location": "[parameters('location')]",
+                            "sku": {
+                                "name": "Standard_LRS",
+                                "tier": "Standard"
+                            },
+                            "kind": "StorageV2",
+                            "properties": {
+                                "accessTier": "Hot"
+                            }
+                        },
+                        {
+                            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+                            "apiVersion": "2018-11-30",
+                            "condition": "[parameters('createManagedId')]",
+                            "name": "[parameters('managedIdName')]",
+                            "location": "[parameters('location')]"
+                        },
+                        {
+                            "type": "Microsoft.Authorization/roleAssignments",
+                            "apiVersion": "2022-04-01",
+                            "name": "[variables('roleDefinitionName')]",
+                            "dependsOn": [
+                                "[parameters('managedIdName')]"
+                            ],
+                            "properties": {
+                                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                                "principalId": "[reference(parameters('managedIdName'), '2018-11-30').principalId]",
+                                "scope": "[resourceGroup().id]",
+                                "principalType": "ServicePrincipal"
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Resources/deploymentScripts",
+                            "apiVersion": "2020-10-01",
+                            "comments": "Creates a new SSH key",
+                            "name": "[variables('scriptName')]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleDefinitionName'))]",
+                                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+                            ],
+                            "location": "[parameters('location')]",
+                            "identity": {
+                                "type": "UserAssigned",
+                                "userAssignedIdentities": {
+                                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
+                                }
+                            },
+                            "kind": "AzureCLI",
+                            "properties": {
+                                "forceUpdateTag": "[parameters('rgRoleGuid')]",
+                                "containerSettings": {
+                                    "containerGroupName": "[variables('containerGroupName')]"
+                                },
+                                "storageAccountSettings": {
+                                    "storageAccountName": "[parameters('storageAccountName')]",
+                                    "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01').keys[0].value]"
+                                },
+                                "azCliVersion": "[variables('azureCliVersion')]",
+                                "scriptContent": "/usr/bin/ssh-keygen -t rsa -b 4096 -f ./tempkey -q -N \"\" ; jq -n -c --arg privateKey \"$(cat ./tempkey)\" --arg publicKey \"$(cat ./tempkey.pub)\" '{\"sshKey\": {\"privateKey\": $privateKey, \"publicKey\": $publicKey}}' > $AZ_SCRIPTS_OUTPUT_PATH",
+                                "timeout": "PT15M",
+                                "cleanupPreference": "OnSuccess",
+                                "retentionInterval": "P1D"
+                            }
+                        },
+                        {
+                            "type": "Microsoft.KeyVault/vaults/secrets",
+                            "name": "[ concat(parameters('vaultName'), '/', parameters('keyName') ) ]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName'))]"
+                            ],
+                            "apiVersion": "2022-07-01",
+                            "properties": {
+                                "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.sshKey.privateKey ]"
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Compute/sshPublicKeys",
+                            "apiVersion": "2022-11-01",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName'))]"
+                            ],
+                            "name": "[ concat(parameters('keyName'), '-public') ]",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "publicKey": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.sshKey.publicKey ]"
+                            }
+                        }
+                    ],
+                    "outputs": {
+                        "vaultName": {
+                            "type": "string",
+                            "value": "[ parameters('vaultName') ]"
+                        },
+                        "keyName": {
+                            "type": "string",
+                            "value": "[ parameters('keyName') ]"
+                        },
+                        "privateKey": {
+                            "type": "securestring",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.sshKey.privateKey ]"
+                        },
+                        "publicKey": {
+                            "type": "string",
+                            "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.sshKey.publicKey ]"
+                        }
+                    }
+                }
+            }
+
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
             "name": "deploy-ocp-ipi",
             "condition": "[parameters('deployOCP')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]"
+                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]",
+                "[resourceId('Microsoft.Resources/deployments', 'create-ssh-keys')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -434,13 +658,16 @@
                         "value": "[parameters('managedIdName')]"
                     },
                     "rgRoleGuid": {
-                        "value": "[parameters('rgRoleGuid')]"
+                        "value": "[parameters('rgRoleGuidOcp')]"
                     },
                     "clientId": {
                         "value": "[parameters('clientId')]"
                     },
                     "clientSecret": {
                         "value": "[parameters('clientSecret')]"
+                    },
+                    "clientObjectId": {
+                        "value": "[parameters('clientObjectId')]" 
                     },
                     "baseDomain": {
                         "value": "[parameters('baseDomain')]"
@@ -458,7 +685,7 @@
                         "value": "[parameters('pullSecret')]" 
                     },
                     "publicSshKey": {
-                        "value": "[parameters('publicSshKey')]" 
+                        "value": "[if( not(equals( parameters('publicSshKey'), '' )), parameters('publicSshKey') ,reference( resourceId('Microsoft.Resources/deployments', 'create-ssh-keys') ).outputs['publicKey'].value )]" 
                     },
                     "vnetName": {
                         "value": "[parameters('vnetName')]"
@@ -498,6 +725,9 @@
                         "clientSecret": {
                             "type": "securestring"
                         },
+                        "clientObjectId": {
+                            "type": "string"
+                        },
                         "baseDomain": {
                             "type": "string"
                         },
@@ -531,14 +761,29 @@
                     },
                     "variables": {
                         "azureCliVersion": "2.45.0",
-                        "containergroupName": "[ concat( parameters('namePrefix'), '-cg') ]"
+                        "scriptName": "[ concat(parameters('namePrefix'), '-ocp-deploy-script') ]",
+                        "containergroupName": "[ concat( parameters('namePrefix'), '-ocp-deploy-cg') ]",
+                        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                        "roleDefinitionName": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('clientObjectId')), variables('roleDefinitionId'), resourceGroup().id)]"
                     },
                     "resources": [
+                        {
+                            "type": "Microsoft.Authorization/roleAssignments",
+                            "apiVersion": "2022-04-01",
+                            "name": "[variables('roleDefinitionName')]",
+                            "properties": {
+                                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                                "principalId": "[parameters('clientObjectId')]"
+                            }
+                        },
                         {
                             "type": "Microsoft.Resources/deploymentScripts",
                             "apiVersion": "2020-10-01",
                             "comments": "Deploys Sterling OMS on ARO cluster",
-                            "name": "ocp-deploment-script",
+                            "name": "[ variables('scriptName') ]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleDefinitionName'))]"
+                            ],
                             "location": "[parameters('location')]",
                             "identity": {
                                 "type": "UserAssigned",
