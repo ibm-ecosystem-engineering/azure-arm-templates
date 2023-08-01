@@ -4,6 +4,7 @@
     "metadata": {
         "description": "Azure ARM Template to deploy a Red Hat OpenShift Installer Provisioned Infrastructure (IPI) cluster."
     },
+    // TODO: Upload private key to keyvault within script to avoid making visible in deployment script output
     "parameters": {
         "namePrefix": {
             "type": "string",
@@ -716,6 +717,10 @@
                         "storageAccountName": {
                             "type": "string"
                         },
+                        "nsgName": {
+                            "type": "string",
+                            "defaultValue": "[ concat( parameters('namePrefix'), '-ocp-nsg' ) ]"
+                        },
                         "managedIdName": {
                             "type": "string"
                         },
@@ -777,12 +782,146 @@
                             }
                         },
                         {
+                            "type": "Microsoft.Network/networkSecurityGroups",
+                            "apiVersion": "2022-11-01",
+                            "name": "[parameters('nsgName')]",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "securityRules": [
+                                    {
+                                        "name": "AllowAnyHTTPInbound",
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('nsgName'), 'AllowAnyHTTPInbound')]",
+                                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                                        "properties": {
+                                            "protocol": "TCP",
+                                            "sourcePortRange": "*",
+                                            "destinationPortRange": "80",
+                                            "sourceAddressPrefix": "*",
+                                            "destinationAddressPrefix": "*",
+                                            "access": "Allow",
+                                            "priority": 100,
+                                            "direction": "Inbound",
+                                            "sourcePortRanges": [],
+                                            "destinationPortRanges": [],
+                                            "sourceAddressPrefixes": [],
+                                            "destinationAddressPrefixes": []
+                                        }
+                                    },
+                                    {
+                                        "name": "AllowAnyHTTPSInbound",
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('nsgName'), 'AllowAnyHTTPSInbound')]",
+                                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                                        "properties": {
+                                            "protocol": "TCP",
+                                            "sourcePortRange": "*",
+                                            "destinationPortRange": "443",
+                                            "sourceAddressPrefix": "*",
+                                            "destinationAddressPrefix": "*",
+                                            "access": "Allow",
+                                            "priority": 110,
+                                            "direction": "Inbound",
+                                            "sourcePortRanges": [],
+                                            "destinationPortRanges": [],
+                                            "sourceAddressPrefixes": [],
+                                            "destinationAddressPrefixes": []
+                                        }
+                                    },
+                                    {
+                                        "name": "AllowAnyPort6443Inbound",
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('nsgName'), 'AllowAnyPort6443Inbound')]",
+                                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                                        "properties": {
+                                            "protocol": "TCP",
+                                            "sourcePortRange": "*",
+                                            "destinationPortRange": "6443",
+                                            "sourceAddressPrefix": "*",
+                                            "destinationAddressPrefix": "*",
+                                            "access": "Allow",
+                                            "priority": 120,
+                                            "direction": "Inbound",
+                                            "sourcePortRanges": [],
+                                            "destinationPortRanges": [],
+                                            "sourceAddressPrefixes": [],
+                                            "destinationAddressPrefixes": []
+                                        }
+                                    },
+                                    {
+                                        "name": "AllowAnyPort22623Inbound",
+                                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups/securityRules', parameters('nsgName'), 'AllowAnyPort22623Inbound')]",
+                                        "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+                                        "properties": {
+                                            "protocol": "TCP",
+                                            "sourcePortRange": "*",
+                                            "destinationPortRange": "22623",
+                                            "sourceAddressPrefix": "*",
+                                            "destinationAddressPrefix": "*",
+                                            "access": "Allow",
+                                            "priority": 130,
+                                            "direction": "Inbound",
+                                            "sourcePortRanges": [],
+                                            "destinationPortRanges": [],
+                                            "sourceAddressPrefixes": [],
+                                            "destinationAddressPrefixes": []
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Network/virtualNetworks/subnets",
+                            "apiVersion": "2022-09-01",
+                            "name": "[ concat( parameters('vnetName'), '/', parameters('controlSubnetName') ) ]",
+                            "location": "[ parameters('location') ]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+                            ],
+                            "properties": {
+                                "addressPrefix": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('controlSubnetName') ), '2022-07-01' ).addressPrefix ]",
+                                "networkSecurityGroup": {
+                                    "id": "[ resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName') ) ]"
+                                },
+                                "serviceEndpoints": [
+                                    {
+                                        "service": "Microsoft.ContainerRegistry"
+                                    },
+                                    {
+                                        "service": "Microsoft.Storage"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Network/virtualNetworks/subnets",
+                            "apiVersion": "2022-09-01",
+                            "name": "[ concat( parameters('vnetName'), '/', parameters('workerSubnetName') ) ]",
+                            "location": "[ parameters('location') ]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+                            ],
+                            "properties": {
+                                "addressPrefix": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('workerSubnetName') ), '2022-07-01' ).addressPrefix ]",
+                                "networkSecurityGroup": {
+                                    "id": "[ resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName') ) ]"
+                                },
+                                "serviceEndpoints": [
+                                    {
+                                        "service": "Microsoft.ContainerRegistry"
+                                    },
+                                    {
+                                        "service": "Microsoft.Storage"
+                                    }
+                                ]
+                            }
+                        },
+                        {
                             "type": "Microsoft.Resources/deploymentScripts",
                             "apiVersion": "2020-10-01",
-                            "comments": "Deploys Sterling OMS on ARO cluster",
+                            "comments": "Deploys OpenShift IPI cluster on an existing Azure VNet",
                             "name": "[ variables('scriptName') ]",
                             "dependsOn": [
-                                "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleDefinitionName'))]"
+                                "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleDefinitionName'))]",
+                                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('controlSubnetName'))]",
+                                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('workerSubnetName'))]"
                             ],
                             "location": "[parameters('location')]",
                             "identity": {

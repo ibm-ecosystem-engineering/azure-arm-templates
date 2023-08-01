@@ -60,6 +60,7 @@ if [[ -z $CLUSTER_HOST_PREFIX ]]; then CLUSTER_HOST_PREFIX="23"; fi
 if [[ -z $OCP_NETWORK_TYPE ]]; then OCP_NETWORK_TYPE="OpenShiftSDN"; fi
 if [[ -z $SERVICE_NETWORK_CIDR ]]; then SERVICE_NETWORK_CIDR="172.30.0.0/16"; fi
 if [[ -z $OCP_OUTBOUND_TYPE ]]; then OCP_OUTBOUND_TYPE="Loadbalancer"; fi
+if [[ -z $DEBUG ]]; then DEBUG=false; fi
 
 log-output "INFO: Workspace directory is set to : $WORKSPACE_DIR"
 log-output "INFO: Binary directory is set to : $BIN_DIR"
@@ -220,10 +221,51 @@ EOF
 
 ###########
 # Create OpenShift cluster
-
+if [[ $DEBUG != true ]]; then
+    openshift-install create cluster --dir ${WORKSPACE_DIR}/ --log-level=info  
+else
+    openshift-install create cluster --dir ${WORKSPACE_DIR}/ --log-level=debug
+fi
 
 ##########
 # Output cluster details
 
-##### DEBUG ONLY
-while true; do sleep 30; done
+API_SERVER="$(cat ${WORKSPACE_DIR}/auth/kubeconfig  | grep server | awk '{print $2}')"
+CONSOLE_URL="$(cat ${WORKSPACE_DIR}/.openshift_install.log | grep "https://console-openshift-console" | tail -1 | egrep -o 'https?://[^ ]+' | sed 's/"//g')"
+CLUSTER_NAME="$(cat ${WORKSPACE_DIR}/metadata.json | jq -r '.clusterName')"
+INFRA_ID="$(cat ${WORKSPACE_DIR}/metadata.json | jq -r '.infraID')"
+CLUSTER_ID="$(cat ${WORKSPACE_DIR}/metadata.json | jq -r '.clusterID')"
+
+if [[ ! -z $VAULT_NAME ]]; then
+    az keyvault secret set --name "cluster-password" --vault-name $VAULT_NAME --file ${WORKSPACE_DIR}/auth/kubeadmin-password
+
+    jq -n -c \
+        --arg apiServer $API_SERVER \
+        --arg consoleURL $CONSOLE_URL \
+        --arg adminUser "kubeadmin" \
+        --arg clusterName $CLUSTER_NAME \
+        --arg clusterId $CLUSTER_ID \
+        --arg infraId $INFRA_ID \
+        '{"clusterDetails": {"apiServer": $apiServer, "consoleURL": $consoleURL, "adminUser": $adminUser, "clusterName": $clusterName, "clusterId": $clusterId, "infraId": $infraId} }' \
+        > $AZ_SCRIPTS_OUTPUT_PATH
+else
+    CLUSTER_PASSWORD="$(cat ${WORKSPACE_DIR}/auth/kubeadmin-password)"
+
+    jq -n -c \
+        --arg apiServer $API_SERVER \
+        --arg consoleURL $CONSOLE_URL \
+        --arg adminUser "kubeadmin" \
+        --arg adminPassword $CLUSTER_PASSWORD \
+        --arg clusterName $CLUSTER_NAME \
+        --arg clusterId $CLUSTER_ID \
+        --arg infraId $INFRA_ID \
+        '{"clusterDetails": {"apiServer": $apiServer, "consoleURL": $consoleURL, "adminUser": $adminUser, "adminPassword": $adminPassword, "clusterName": $clusterName, "clusterId": $clusterId, "infraId": $infraId} }' \
+        > $AZ_SCRIPTS_OUTPUT_PATH
+fi
+
+##### DEBUG ONLY. Keeps container running.
+if [[ $DEBUG == true ]]; then
+    while true; do 
+        sleep 30; 
+    done
+fi
