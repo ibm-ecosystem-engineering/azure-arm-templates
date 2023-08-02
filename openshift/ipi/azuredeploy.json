@@ -718,8 +718,14 @@
                     "controlSubnetName": {
                         "value": "[parameters('controlSubnetName')]"
                     },
+                    "controlSubnetCIDR": {
+                        "value": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('controlSubnetName') ), '2022-07-01' ).addressPrefix ]"
+                    },
                     "workerSubnetName": {
                         "value": "[parameters('workerSubnetName')]"
+                    },
+                    "workerSubnetCIDR": {
+                        "value": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('workerSubnetName') ), '2022-07-01' ).addressPrefix ]"
                     },
                     "masterNodeSize": {
                         "value": "[parameters('masterNodeSize')]"
@@ -796,7 +802,13 @@
                         "controlSubnetName": {
                             "type": "string"
                         },
+                        "controlSubnetCIDR": {
+                            "type": "string"
+                        },
                         "workerSubnetName": {
+                            "type": "string"
+                        },
+                        "workerSubnetCIDR": {
                             "type": "string"
                         },
                         "baseUrl": {
@@ -915,7 +927,7 @@
                                 "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
                             ],
                             "properties": {
-                                "addressPrefix": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('controlSubnetName') ), '2022-07-01' ).addressPrefix ]",
+                                "addressPrefix": "[parameters('controlSubnetCIDR')]",
                                 "networkSecurityGroup": {
                                     "id": "[ resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName') ) ]"
                                 },
@@ -938,7 +950,7 @@
                                 "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
                             ],
                             "properties": {
-                                "addressPrefix": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('workerSubnetName') ), '2022-07-01' ).addressPrefix ]",
+                                "addressPrefix": "[parameters('workerSubnetCIDR')]",
                                 "networkSecurityGroup": {
                                     "id": "[ resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName') ) ]"
                                 },
