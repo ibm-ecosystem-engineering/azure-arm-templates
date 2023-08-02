@@ -1,0 +1,6 @@
+# Generate a new SSH Key pair and store private key in Key Vault
+
+[![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Futilities%2Fgenerate-sshkey%2Fazuredeploy.json)
+[![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fibm-ecosystem-lab%2Fazure-arm-templates%2Fmain%2Futilities%2Fgenerate-sshkey%2Fazuredeploy.json)
+
+This ARM Template creates a new SSH Key pair using a deployment script then uploads the private key to a key vault. By default the template will create a new key vault, but an existing key vault may also be used. The public key is returned as an output of the template.
