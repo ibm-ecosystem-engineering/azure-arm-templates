@@ -221,6 +221,7 @@ EOF
 
 ###########
 # Create OpenShift cluster
+log-output "INFO: Creating OpenShift cluster"
 if [[ $DEBUG != true ]]; then
     openshift-install create cluster --dir ${WORKSPACE_DIR}/ --log-level=info  
 else

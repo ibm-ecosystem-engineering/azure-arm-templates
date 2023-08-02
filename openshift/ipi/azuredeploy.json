@@ -4,7 +4,8 @@
     "metadata": {
         "description": "Azure ARM Template to deploy a Red Hat OpenShift Installer Provisioned Infrastructure (IPI) cluster."
     },
-    // TODO: Upload private key to keyvault within script to avoid making visible in deployment script output
+    // TO DO: Upload private key to keyvault within script to avoid making visible in deployment script output
+    // TO DO: Add ability to BYO VNet and subnets
     "parameters": {
         "namePrefix": {
             "type": "string",
