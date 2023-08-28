@@ -390,27 +390,6 @@ function wait_for_cluster_operators() {
 #        wait_for_cluster_operators API_SERVER OCP_USERNAME OCP_PASSWORD BIN_DIR 
 #
 
-    if [[ -z ${1} ]] || [[ -z $API_SERVER ]]; then
-        log-output "ERROR: API_SERVER not passed to function oc-login"
-        exit 1
-    elif [[ ${1} != "" ]]; then
-        API_SERVER=${1}
-    fi
-
-    if [[ -z ${2} ]] || [[ -z $OCP_USERNAME ]]; then
-        log-output "ERROR: OCP_USERNAME not passed to function oc-login"
-        exit 1
-    elif [[ ${2} != "" ]]; then
-        OCP_USERNAME=${2}
-    fi
-
-    if [[ -z ${3} ]] || [[ -z $OCP_USERNAME ]]; then
-        log-output "ERROR: OCP_PASSWORD not passed to function oc-login"
-        exit 1
-    elif [[ ${3} != "" ]]; then
-        OCP_USERNAME=${3}
-    fi
-
     if [[ -z ${4} ]] || [[ -z $BIN_DIR ]]; then
         BIN_DIR="/usr/local/bin"
     elif [[ ${4} != "" ]]; then
@@ -418,27 +397,6 @@ function wait_for_cluster_operators() {
     fi
 
     log-output "INFO: Checking for cluster operator status"
-    # Attempt to login to cluster if not already
-    if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
-        log-output "INFO: Attempting login to OpenShift cluster $API_SERVER"
-
-        # Below loop added to allow authentication service to start on new clusters
-        count=0
-        while ! ${BIN_DIR}/oc login $API_SERVER -u $OCP_USERNAME -p $OCP_PASSWORD --insecure-skip-tls-verify=true 1> /dev/null 2> /dev/null ; do
-            log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
-            sleep 60
-            count=$(( $count + 1 ))
-            if (( $count > 15 )); then
-                log-output "ERROR: Timeout waiting to log into cluster"
-                exit 1;    
-            fi
-        done
-        log-output "INFO: Successfully logged into cluster $API_SERVER"
-        existing_login="no"
-    else
-        log-output "INFO: Already logged into cluster"
-        existing_login="yes"
-    fi
 
     # Wait for cluster operators to be available
     count=0
@@ -453,9 +411,4 @@ function wait_for_cluster_operators() {
     done
     log-output "INFO: Cluster operators are ready"
 
-    # Log out of cluster to allow secure login
-    if [[ $existing_login == "no" ]]; then
-        log-output "INFO: Logging out of temporary cluster login"
-        oc logout 1> /dev/null 2> /dev/null
-    fi
 }

@@ -39,13 +39,32 @@ if [[ ! -f ${BIN_DIR}/oc ]] || [[ ! -f ${BIN_DIR}/kubectl ]]; then
     cli-download $BIN_DIR $TMP_DIR
 fi
 
+#######
+# Login to cluster
+if ! ${BIN_DIR}/oc status 1> /dev/null 2> /dev/null; then
+    log-output "INFO: Attempting login to OpenShift cluster $API_SERVER"
+
+    # Below loop added to allow authentication service to start on new clusters
+    count=0
+    while ! ${BIN_DIR}/oc login $API_SERVER -u $OCP_USERNAME -p $OCP_PASSWORD --insecure-skip-tls-verify=true 1> /dev/null 2> /dev/null ; do
+        log-output "INFO: Waiting to log into cluster. Waited $count minutes. Will wait up to 15 minutes."
+        sleep 60
+        count=$(( $count + 1 ))
+        if (( $count > 15 )); then
+            log-output "ERROR: Timeout waiting to log into cluster"
+            exit 1;    
+        fi
+    done
+    log-output "INFO: Successfully logged into cluster $API_SERVER"
+    existing_login="no"
+else
+    log-output "INFO: Already logged into cluster"
+    existing_login="yes"
+fi
+
 ##### 
 # Wait for cluster operators to complete implementation and startup
 wait_for_cluster_operators $API_SERVER $OCP_USERNAME $OCP_PASSWORD $BIN_DIR
-
-#######
-# Login to cluster
-oc-login $API_SERVER $OCP_USERNAME $OCP_PASSWORD $BIN_DIR
 
 ##### 
 # Obtain cluster id, version and other details
@@ -60,14 +79,8 @@ LOCATION_STRING=$(oc get nodes | grep worker |head -1 | awk '{print $1}'  | awk 
 export CLUSTER_LOCATION=$(echo ${LOCATION_STRING::-1})
 log-output "INFO: CLUSTER_LOCATION = $CLUSTER_LOCATION"
 
-export IMAGE_SKU=$(${BIN_DIR}/oc get machineset/${CLUSTER_ID}-worker-${CLUSTER_LOCATION}1 -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.image.sku}{"\n"}')
-log-output "INFO: IMAGE_SKU = $IMAGE_SKU"
-
-export IMAGE_OFFER=$(${BIN_DIR}/oc get machineset/${CLUSTER_ID}-worker-${CLUSTER_LOCATION}1 -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.image.offer}{"\n"}')
-log-output "INFO: IMAGE_OFFER = $IMAGE_OFFER"
-
-export IMAGE_VERSION=$(${BIN_DIR}/oc get machineset/${CLUSTER_ID}-worker-${CLUSTER_LOCATION}1 -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.image.version}{"\n"}')
-log-output "INFO: IMAGE_VERSION = $IMAGE_VERSION"
+export IMAGE_ID=$(${BIN_DIR}/oc get machineset/${CLUSTER_ID}-worker-${CLUSTER_LOCATION}1 -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.image.resourceID}{"\n"}')
+log-output "INFO: IMAGE_RESOURCEID = $IMAGE_ID"
 
 export OCP_RESOURCE_GROUP=$(${BIN_DIR}/oc get machineset/${CLUSTER_ID}-worker-${CLUSTER_LOCATION}1 -n openshift-machine-api -o jsonpath='{.spec.template.spec.providerSpec.value.resourceGroup}{"\n"}')
 log-output "INFO: OCP_RESOURCE_GROUP = $OCP_RESOURCE_GROUP"
@@ -136,6 +149,8 @@ else
     log-output "INFO: Using existing odf-operator subscription"
 fi
 
+wait_for_subscription openshift-storage odf-operator
+
 ####
 # Patch the console to add the ODF console
 if [[ -z $(${BIN_DIR}/oc get console.operator cluster -n openshift-storage -o json | grep odf-console) ]]; then
@@ -145,11 +160,14 @@ else
     log-output "INFO: Openshift console already patched for ODF console"
 fi
 
-####
-# Generate new machineset for ODF storage cluster - zone 1
-if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}1) ]]; then
-    log-output "INFO: Creating machineset for zone 1 for ODF storage cluster"
-    cat << EOF | oc apply -f -
+if [[ $EXISTING_NODES == "no" ]]; then
+  log-output "INFO: Creating new machinesets for ODF storage cluster"
+
+  ####
+  # Generate new machineset for ODF storage cluster - zone 1
+  if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}1) ]]; then
+      log-output "INFO: Creating machineset for zone 1 for ODF storage cluster"
+      cat << EOF | oc apply -f -
 apiVersion: machine.openshift.io/v1beta1
 kind: MachineSet
 metadata:
@@ -185,11 +203,11 @@ spec:
             name: azure-cloud-credentials
             namespace: openshift-machine-api
           image:
-            offer: ${IMAGE_OFFER}
-            publisher: azureopenshift
-            resourceID: ''
-            sku: ${IMAGE_SKU}
-            version: ${IMAGE_VERSION}
+            offer: ''
+            publisher: ''
+            resourceID: '${RESOURCE_ID}'
+            sku: ''
+            version: ''
           internalLoadBalancer: ""
           kind: AzureMachineProviderSpec
           location: ${CLUSTER_LOCATION}
@@ -214,15 +232,15 @@ spec:
           vnet: ${VNET_NAME}
           zone: "1" 
 EOF
-else
-    log-output "INFO: Using existing machinesets for zone 1 for ODF storage cluster"
-fi
+  else
+      log-output "INFO: Using existing machinesets for zone 1 for ODF storage cluster"
+  fi
 
-####
-# Generate new machineset for ODF storage cluster - zone 2
-if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}2) ]]; then
-    log-output "INFO: Creating machineset for zone 2 for ODF storage cluster"
-    cat << EOF | oc apply -f -
+  ####
+  # Generate new machineset for ODF storage cluster - zone 2
+  if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}2) ]]; then
+      log-output "INFO: Creating machineset for zone 2 for ODF storage cluster"
+      cat << EOF | oc apply -f -
 apiVersion: machine.openshift.io/v1beta1
 kind: MachineSet
 metadata:
@@ -258,11 +276,11 @@ spec:
             name: azure-cloud-credentials
             namespace: openshift-machine-api
           image:
-            offer: ${IMAGE_OFFER}
-            publisher: azureopenshift
-            resourceID: ''
-            sku: ${IMAGE_SKU}
-            version: ${IMAGE_VERSION}
+            offer: ''
+            publisher: ''
+            resourceID: '${RESOURCE_ID}'
+            sku: ''
+            version: ''
           internalLoadBalancer: ""
           kind: AzureMachineProviderSpec
           location: ${CLUSTER_LOCATION}
@@ -287,15 +305,15 @@ spec:
           vnet: ${VNET_NAME}
           zone: "2" 
 EOF
-else
-    log-output "INFO: Using existing machinesets for zone 2 for ODF storage cluster"
-fi
+  else
+      log-output "INFO: Using existing machinesets for zone 2 for ODF storage cluster"
+  fi
 
-####
-# Generate new machineset for ODF storage cluster - zone 3
-if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}3) ]]; then
-    log-output "INFO: Creating machineset for zone 3 for ODF storage cluster"
-    cat << EOF | oc apply -f -
+  ####
+  # Generate new machineset for ODF storage cluster - zone 3
+  if [[ -z $(${BIN_DIR}/oc get machineset -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}3) ]]; then
+      log-output "INFO: Creating machineset for zone 3 for ODF storage cluster"
+      cat << EOF | oc apply -f -
 apiVersion: machine.openshift.io/v1beta1
 kind: MachineSet
 metadata:
@@ -331,11 +349,11 @@ spec:
             name: azure-cloud-credentials
             namespace: openshift-machine-api
           image:
-            offer: ${IMAGE_OFFER}
-            publisher: azureopenshift
-            resourceID: ''
-            sku: ${IMAGE_SKU}
-            version: ${IMAGE_VERSION}
+            offer: ''
+            publisher: ''
+            resourceID: '${RESOURCE_ID}'
+            sku: ''
+            version: ''
           internalLoadBalancer: ""
           kind: AzureMachineProviderSpec
           location: ${CLUSTER_LOCATION}
@@ -360,24 +378,125 @@ spec:
           vnet: ${VNET_NAME}
           zone: "3" 
 EOF
-else
-    log-output "INFO: Using existing machinesets for zone 3 for ODF storage cluster"
-fi
+  else
+      log-output "INFO: Using existing machinesets for zone 3 for ODF storage cluster"
+  fi
 
-#####
-# Wait for machines to provision
-count=0
-while [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}1 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]] \
-    || [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}2 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]] \
-    || [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}3 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]]; do
-    log-output "INFO: Waiting for machinesets to become available. Waiting $count minutes. Will wait up to 30 minutes."
-    sleep 60
-    count=$(( $count + 1 ))
-    if (( $count > 30 )); then
-        log-output "ERROR: Timeout waiting for cluster operators to be available"
-        exit 1;    
+  #####
+  # Wait for machines to provision
+  count=0
+  while [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}1 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]] \
+      || [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}2 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]] \
+      || [[ $(${BIN_DIR}/oc get machinesets -n openshift-machine-api ${CLUSTER_ID}-odf-${CLUSTER_LOCATION}3 -o jsonpath='{.status.availableReplicas}{"\n"}') != "1" ]]; do
+      log-output "INFO: Waiting for machinesets to become available. Waiting $count minutes. Will wait up to 30 minutes."
+      sleep 60
+      count=$(( $count + 1 ))
+      if (( $count > 30 )); then
+          log-output "ERROR: Timeout waiting for cluster operators to be available"
+          exit 1;    
+      fi
+  done
+
+else
+  log-output "INFO: Labelling existing worker nodes for use with ODF storage cluster"
+
+  # Get list of worker nodes
+  log-output "INFO: Getting list of worker nodes"
+  NODES=( $(oc get nodes | grep worker | awk '{print $1}') )
+
+  # Confirm that there are 3 nodes available
+  if (( $(echo ${#NODES[@]}) < 3  )); then
+    log-output "ERROR: Insufficient nodes for storage cluster. Must have at least 3 nodes available"
+    exit 1
+  fi
+
+  # Get the size and zone of each node in array
+  log-output "INFO: Getting node details"
+  for node in ${NODES[@]}; do
+    cpu=$(${BIN_DIR}/oc get node $node -o json | jq -r '.status.capacity.cpu')
+    mem=$(${BIN_DIR}/oc get node $node -o json | jq -r '.status.capacity.memory')
+    zone=$(${BIN_DIR}/oc get machine -n openshift-machine-api | grep $node | awk '{print $5}')
+    if (( $cpu > 15 )); then
+      if [[ -z $(${BIN_DIR}/oc get node ${ODF_NODES_ZONE1[1]//\"/} -o json | jq '.metadata.labels' | grep "cluster.ocs.openshift.io") ]]; then
+        labelled="false"
+      else
+        labelled="true"
+      fi
+      jq -n \
+        --arg name "$node" \
+        --arg cpu $cpu \
+        --arg mem $mem \
+        --arg zone $zone \
+        --arg labelled $labelled \
+        '{name: $name, cpu: $cpu, mem: $mem, zone: $zone, labelled: $labelled}'
     fi
-done
+  done | jq -n '.nodes |= [inputs]' > ${WORKSPACE_DIR}/node-details.json
+
+  NODE_DETAIL="$(cat ${WORKSPACE_DIR}/node-details.json)"
+
+  # Check enough nodes of 16 CPU or higher available
+  log-output "INFO: Checking size of nodes"
+  if (( $( echo $NODE_DETAIL | jq '.nodes | length' ) < 3  )); then
+    log-output "ERROR: Insufficient nodes of sufficient size available for storage cluster"
+    log-output "ERROR: Minimum of 3 nodes with 16 CPU or more required"
+    exit 1
+  fi
+
+  # Choose 1 node from each availability zone
+
+
+  ZONE1_LABELLED_NODES=( $(echo $NODE_DETAIL| jq '.nodes[] | select(.zone == "1") | select(.labelled == "true") | .name' ) )
+  if (( ${#ZONE1_LABELLED_NODES[@]} > 0 )); then    
+    for node in ${ZONE1_LABELLED_NODES[@]}; do
+      log-output "INFO: Using existing labelled node $node"
+    done
+  else
+    log-output "INFO: Checking sufficiently sized node available availability zone 1"
+    ODF_NODES_ZONE1=( $(echo $NODE_DETAIL | jq '.nodes[] | select(.zone == "1") | .name') )
+    if (( ${#ODF_NODES_ZONE1[@]} < 1 )); then
+      log-output "ERROR: Insufficient nodes in availability zone 1 of sufficient size for storage cluster"
+      exit 1
+    else
+      log-output "INFO: ${ODF_NODES_ZONE1[0]} is of sufficient size in availability zone 1 and will be labelled for ODF"
+      log-output "INFO: Labelling ${ODF_NODES_ZONE1[0]//\"/} as ODF node for availability zone 1"
+      ${BIN_DIR}/oc label node ${ODF_NODES_ZONE1[0]//\"/} cluster.ocs.openshift.io/openshift-storage=''
+    fi
+  fi
+
+  ZONE2_LABELLED_NODES=( $(echo $NODE_DETAIL| jq '.nodes[] | select(.zone == "2") | select(.labelled == "true") | .name' ) )
+  if (( ${#ZONE2_LABELLED_NODES[@]} > 0 )); then    
+    for node in ${ZONE2_LABELLED_NODES[@]}; do
+      log-output "INFO: Using existing labelled node $node"
+    done
+  else
+    ODF_NODES_ZONE2=( $(echo $NODE_DETAIL | jq '.nodes[] | select(.zone == "2") | .name') )
+    if (( ${#ODF_NODES_ZONE2[@]} < 1 )); then
+      log-output "ERROR: Insufficient nodes in availability zone 2 of sufficient size for storage cluster"
+      exit 1
+    else
+      log-output "INFO: ${ODF_NODES_ZONE2[0]//\"/} is of sufficient size in availability zone 2 and will be labelled for ODF"
+      log-output "INFO: Labelling ${ODF_NODES_ZONE2[0]//\"/} as ODF node for availability zone 2"
+      ${BIN_DIR}/oc label node ${ODF_NODES_ZONE2[0]//\"/} cluster.ocs.openshift.io/openshift-storage=''
+    fi
+  fi
+
+  ZONE2_LABELLED_NODES=( $(echo $NODE_DETAIL| jq '.nodes[] | select(.zone == "2") | select(.labelled == "true") | .name' ) )
+  if (( ${#ZONE2_LABELLED_NODES[@]} > 0 )); then    
+    for node in ${ZONE2_LABELLED_NODES[@]}; do
+      log-output "INFO: Using existing labelled node $node"
+    done
+  else
+    ODF_NODES_ZONE3=( $(echo $NODE_DETAIL | jq '.nodes[] | select(.zone == "3") | .name') )
+    if (( ${#ODF_NODES_ZONE2[@]} < 1 )); then
+      log-output "ERROR: Insufficient nodes in availability zone 3 of sufficient size for storage cluster"
+      exit 1
+    else
+      log-output "INFO: ${ODF_NODES_ZONE2[0]//\"/} is of sufficient size in availability zone 3 and will be labelled for ODF"
+      log-output "INFO: Labelling ${ODF_NODES_ZONE3[0]//\"/} as ODF node for availability zone 3"
+      ${BIN_DIR}/oc label node ${ODF_NODES_ZONE3[0]//\"/} cluster.ocs.openshift.io/openshift-storage=''
+    fi
+  fi
+fi
 
 
 #####
@@ -423,7 +542,7 @@ spec:
         resources:
           requests:
             storage: "${STORAGE_SIZE}"
-        storageClassName: managed-premium
+        storageClassName: managed-csi
         volumeMode: Block
     name: ocs-deviceset
     placement: {}
