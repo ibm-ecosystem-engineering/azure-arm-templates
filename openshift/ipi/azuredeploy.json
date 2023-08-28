@@ -75,6 +75,13 @@
                 "description": "Flag to determine whether to create the key vault (for debug only)"
             }
         },
+        "deployAzureFile": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Flag to determine whether to create the Azure file storage and storage class in OpenShift"
+            }
+        },
         "deployOCP": {
             "type": "bool",
             "defaultValue": true,
@@ -209,6 +216,54 @@
                 "description": "Name of the OpenShift worker subnet"
             }
         },
+        "storageSubnetName": {
+            "type": "string",
+            "defaultValue": "storage-subnet",
+            "metadata": {
+                "description": "Name of the private subnet for the Azure file (only created if Azure file is selected)"
+            }
+        },
+        "storageSubnetCIDR": {
+            "type": "string",
+            "defaultValue": "10.0.2.0/24",
+            "metadata": {
+                "description": "CIDR for the storage subnet (only created if Azure file is selected)"
+            }
+        },
+        "fileStorageType": {
+            "type": "string",
+            "defaultValue": "Premium_LRS",
+            "allowedValues": [
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_LRS",
+                "Standard_ZRS"
+            ],
+            "metadata": {
+                "description": "Type of disk for the Azure file storage (only used if Azure file is selected)"
+            }
+        },
+        "fileStorageAccountName": {
+            "type": "string",
+            "defaultValue": "[concat('ocpfileshare',substring(uniqueString(resourceGroup().id),1,7))]",
+            "metadata": {
+                "description": "Name of the storage account for the Azure file storage (only created if Azure file is selected)"
+            }
+        },
+        "fileStorageEndpointName": {
+            "type": "string",
+            "defaultValue": "ocp-storage",
+            "metadata": {
+                "description": "Name of the private endpoint for the storage"
+            }   
+        },
+        "fileStorageSuffix": {
+            "type": "string",
+            "defaultValue": "core.windows.net",
+            "metadata": {
+                "description": "URI for storage"
+            }
+        },
         "branch": {
             "type": "string",
             "defaultValue": "main",
@@ -300,48 +355,112 @@
             }
         },
         {
-            "type": "Microsoft.Network/virtualNetworks",
-            "apiVersion": "2022-07-01",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "deploy-virtual-network",
             "condition": "[parameters('deployVNet')]",
-            "name": "[parameters('vnetName')]",
-            "location": "[parameters('location')]",
             "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "[parameters('vnetCIDR')]"
-                    ]
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
                 },
-                "subnets": [
-                    {
-                        "name": "[parameters('controlSubnetName')]",
-                        "properties": {
-                            "addressPrefix": "[parameters('controlSubnetCIDR')]",
-                            "privateLinkServiceNetworkPolicies": "Disabled",
-                            "serviceEndpoints": [
-                                {
-                                    "service": "Microsoft.ContainerRegistry"
-                                },
-                                {
-                                    "service": "Microsoft.Storage"
-                                }
-                            ]
+                "parameters": {
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('vnetName')]"
+                    },
+                    "vnetCIDR": {
+                        "value": "[parameters('vnetCIDR')]"
+                    },
+                    "controlSubnetName": {
+                        "value": "[parameters('controlSubnetName')]"
+                    },
+                    "controlSubnetCIDR": {
+                        "value": "[parameters('controlSubnetCIDR')]"
+                    },
+                    "workerSubnetName": {
+                        "value": "[parameters('workerSubnetName')]"
+                    },
+                    "workerSubnetCIDR": {
+                        "value": "[parameters('workerSubnetCIDR')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "vnetName": {
+                            "type": "string"
+                        },
+                        "vnetCIDR": {
+                            "type": "string"
+                        },
+                        "controlSubnetCIDR": {
+                            "type": "string"
+                        },
+                        "controlSubnetName": {
+                            "type": "string"
+                        },
+                        "workerSubnetCIDR": {
+                            "type": "string"
+                        },
+                        "workerSubnetName": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
                         }
                     },
-                    {
-                        "name": "[parameters('workerSubnetName')]",
-                        "properties": {
-                            "addressPrefix": "[parameters('workerSubnetCIDR')]",
-                            "serviceEndpoints": [
-                                {
-                                    "service": "Microsoft.ContainerRegistry"
+                    "variables": {},
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/virtualNetworks",
+                            "apiVersion": "2022-07-01",
+                            "name": "[parameters('vnetName')]",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "addressSpace": {
+                                    "addressPrefixes": [
+                                        "[parameters('vnetCIDR')]"
+                                    ]
                                 },
-                                {
-                                    "service": "Microsoft.Storage"
-                                }
-                            ]
+                                "subnets": [
+                                    {
+                                        "name": "[parameters('controlSubnetName')]",
+                                        "properties": {
+                                            "addressPrefix": "[parameters('controlSubnetCIDR')]",
+                                            "privateLinkServiceNetworkPolicies": "Disabled",
+                                            "serviceEndpoints": [
+                                                {
+                                                    "service": "Microsoft.ContainerRegistry"
+                                                },
+                                                {
+                                                    "service": "Microsoft.Storage"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "name": "[parameters('workerSubnetName')]",
+                                        "properties": {
+                                            "addressPrefix": "[parameters('workerSubnetCIDR')]",
+                                            "serviceEndpoints": [
+                                                {
+                                                    "service": "Microsoft.ContainerRegistry"
+                                                },
+                                                {
+                                                    "service": "Microsoft.Storage"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
                         }
-                    }
-                ]
+                    ]
+                }
             }
         },
         {
@@ -660,7 +779,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]",
                 "[resourceId('Microsoft.Resources/deployments', 'create-ssh-keys')]",
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                "[resourceId('Microsoft.Resources/deployments', 'deploy-virtual-network')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -720,13 +839,13 @@
                         "value": "[parameters('controlSubnetName')]"
                     },
                     "controlSubnetCIDR": {
-                        "value": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('controlSubnetName') ), '2022-07-01' ).addressPrefix ]"
+                        "value": "[ parameters('controlSubnetCIDR') ]"
                     },
                     "workerSubnetName": {
                         "value": "[parameters('workerSubnetName')]"
                     },
                     "workerSubnetCIDR": {
-                        "value": "[ reference( resourceId( 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('workerSubnetName') ), '2022-07-01' ).addressPrefix ]"
+                        "value": "[ parameters('workerSubnetCIDR') ]"
                     },
                     "masterNodeSize": {
                         "value": "[parameters('masterNodeSize')]"
@@ -1096,6 +1215,333 @@
                             "value": "[ reference( resourceId('Microsoft.Resources/deploymentScripts', variables('scriptName') ) ).outputs.clusterDetails.infraId ]"
                         }
                     }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "deploy-azure-file",
+            "condition": "[parameters('deployAzureFile')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'deploy-virtual-network')]",
+                "[resourceId('Microsoft.Resources/deployments', 'scriptPrerequisites')]",
+                "[resourceId('Microsoft.Resources/deployments', 'deploy-ocp-ipi')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
+                },
+                "parameters": {
+                    "namePrefix": {
+                        "value": "[parameters('namePrefix')]"
+                    },
+                    "spClientId": {
+                        "value": "[parameters('clientId')]" 
+                    },
+                    "spClientSecret": {
+                        "value": "[parameters('clientSecret')]"
+                    },
+                    "apiServer": {
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments','deploy-ocp-ipi'),'2020-10-01').outputs['apiServer'].value]" 
+                    },
+                    "ocpUsername": {
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments','deploy-ocp-ipi'),'2020-10-01').outputs['adminUser'].value]" 
+                    },
+                    "ocpPassword": {
+                        "value": "[reference(resourceId('Microsoft.Resources/deployments','deploy-ocp-ipi'),'2020-10-01').outputs['adminPassword'].value]" 
+                    },
+                    "createSubnet": {
+                        "value": true
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "managedIdName": {
+                        "value": "[parameters('managedIdName')]"
+                    },
+                    "cgStorageAccount": {
+                        "value": "[parameters('storageAccountName')]" 
+                    },
+                    "fileType": {
+                        "value": "[parameters('fileStorageType')]" 
+                    },
+                    "storageAccountName": {
+                        "value": "[parameters('fileStorageAccountName')]"
+                    },
+                    "vnetName": {
+                        "value": "[parameters('vnetName')]"
+                    },
+                    "subnetName": {
+                        "value": "[parameters('storageSubnetName')]" 
+                    },
+                    "subnetCIDR": {
+                        "value": "[parameters('storageSubnetCIDR')]"
+                    },
+                    "privateStorageEndpointName": {
+                        "value": "[parameters('fileStorageEndpointName')]" 
+                    },
+                    "storageSuffix": {
+                        "value": "[parameters('fileStorageSuffix')]" 
+                    },
+                    "branch": {
+                        "value": "[parameters('branch')]"
+                    }
+                },
+                "template": {
+                        "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                        "contentVersion": "1.0.0.0",
+                        "metadata": {
+                            "description": "Creates an Azure file share storage class in OpenShift"
+                        },
+                        "parameters": {
+                            "namePrefix": {
+                                "type": "string"
+                            },
+                            "spClientId" : {
+                                "type": "string"
+                            },
+                            "spClientSecret": {
+                                "type": "securestring"
+                            },
+                            "apiServer": {
+                                "type": "string"
+                            },
+                            "ocpUsername": {
+                                "type": "string"
+                            },
+                            "ocpPassword": {
+                                "type": "securestring"
+                            },
+                            "createSubnet": {
+                                "type": "bool"
+                            },
+                            "location": {
+                                "type": "string"
+                            },
+                            "managedIdName": {
+                                "type": "string"
+                            },
+                            "cgStorageAccount": {
+                                "type": "string"
+                            },
+                            "fileType": {
+                                "type": "string"
+                            },
+                            "storageAccountName": {
+                                "type": "string"          
+                            },
+                            "vnetName": {
+                                "type": "string"
+                            },
+                            "privateStorageEndpointName": {
+                                "type": "string"
+                            },
+                            "subnetName": {
+                                "type": "string"
+                            },
+                            "subnetCIDR": {
+                                "type": "string"
+                            },
+                            "storageSuffix": {
+                                "type": "string"
+                            },
+                            "branch": {
+                                "type": "string"
+                            }
+                        },
+                        "variables": {
+                            "scriptName": "[concat(parameters('namePrefix'),'-file-script')]",
+                            "scriptGUID": "[guid(resourceGroup().id, deployment().name )]",
+                            "containerGroupName": "[concat(parameters('namePrefix'),'-file-cg')]",
+                            "baseUrl": "[concat('https://raw.githubusercontent.com/ibm-ecosystem-lab/azure-arm-templates/',parameters('branch'),'/')]",
+                            "storageDNSZoneName": "[concat('privatelink.file.',parameters('storageSuffix'))]",
+                            "fileStorageAccountPrivateEndpointGroupName": "file",
+                            "storageAccountAssignment": "[guid(variables('storageContributor'), resourceGroup().id)]",
+                            "storageContributor": "/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab"
+                        },
+                        "resources": [
+                            {
+                                "type": "Microsoft.Storage/storageAccounts",
+                                "apiVersion": "2021-06-01",
+                                "name": "[parameters('storageAccountName')]",
+                                "location": "[parameters('location')]",
+                                "kind": "FileStorage",
+                                "sku": {
+                                    "name": "[parameters('fileType')]"
+                                },
+                                "properties": {
+                                    "allowSharedKeyAccess": true,
+                                    "minimumTlsVersion": "TLS1_2",
+                                    "allowBlobPublicAccess": false,
+                                    "supportsHttpsTrafficOnly": false,
+                                    "networkAcls": {
+                                        "bypass": "AzureServices",
+                                        "virtualNetworkRules": [],
+                                        "ipRules": [],
+                                        "defaultAction": "Deny"
+                                    }
+                                }
+                            },
+                            {
+                                "type": "Microsoft.Network/virtualNetworks/subnets",
+                                "apiVersion": "2020-11-01",
+                                "condition": "[parameters('createSubnet')]",
+                                "name": "[concat(parameters('vnetName'),'/',parameters('subnetName'))]",
+                                "properties": {
+                                    "addressPrefix": "[parameters('subnetCIDR')]",
+                                    "privateLinkServiceNetworkPolicies": "Enabled",
+                                    "privateEndpointNetworkPolicies": "Disabled"
+                                }
+                            },
+                            {
+                                "type": "Microsoft.Network/privateDnsZones",
+                                "apiVersion": "2020-06-01",
+                                "name": "[variables('storageDNSZoneName')]",
+                                "location": "global",
+                                "properties": {},
+                                "dependsOn": [
+                                    "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                                ]
+                            },
+                            {
+                                "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+                                "apiVersion": "2020-06-01",
+                                "name": "[concat(variables('storageDNSZoneName'),'/',parameters('vnetName'),'-link')]",
+                                "location": "global",
+                                "properties": {
+                                    "registrationEnabled": false,
+                                    "virtualNetwork": {
+                                        "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                                    }
+                                },
+                                "dependsOn": [
+                                    "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                                    "[resourceId('Microsoft.Network/privateDnsZones', variables('storageDNSZoneName'))]"
+                                ]
+                            },
+                            {
+                                "type": "Microsoft.Network/privateEndpoints",
+                                "apiVersion": "2021-03-01",
+                                "name": "[parameters('privateStorageEndpointName')]",
+                                "location": "[parameters('location')]",
+                                "properties": {
+                                    "subnet": {
+                                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                                    },
+                                    "privateLinkServiceConnections": [
+                                        {
+                                            "name": "[parameters('privateStorageEndpointName')]",
+                                            "properties": {
+                                                "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts',parameters('storageAccountName'))]",
+                                                "groupIds": [
+                                                    "[variables('fileStorageAccountPrivateEndpointGroupName')]"
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                },
+                                "dependsOn": [
+                                    "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+                                    "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+                                ]
+                            },
+                            {
+                                "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                                "apiVersion": "2022-07-01",
+                                "name": "[concat(parameters('privateStorageEndpointName'),'/','dnsgroupname')]",
+                                "properties": {
+                                    "privateDnsZoneConfigs": [
+                                        {
+                                            "name": "premium",
+                                            "properties": {
+                                                "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('storageDNSZoneName'))]"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "dependsOn": [
+                                    "[resourceId('Microsoft.Network/privateEndpoints',parameters('privateStorageEndpointName'))]"
+                                ]
+                            },
+                            {
+                                "type": "Microsoft.Resources/deploymentScripts",
+                                "apiVersion": "2020-10-01",
+                                "comments": "Creates the Azure file share storage class in OpenShift",
+                                "name": "[variables('scriptName')]",
+                                "location": "[parameters('location')]",
+                                "identity": {
+                                    "type": "UserAssigned",
+                                    "userAssignedIdentities": {
+                                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdName'))]": {}
+                                    }
+                                },
+                                "kind": "AzureCLI",
+                                "properties": {
+                                    "forceUpdateTag": "[variables('scriptGUID')]",
+                                    "containerSettings": {
+                                        "containerGroupName": "[variables('containerGroupName')]"
+                                    },
+                                    "storageAccountSettings": {
+                                        "storageAccountName": "[parameters('cgStorageAccount')]",
+                                        "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('cgStorageAccount')), '2022-09-01').keys[0].value]"
+                                    },
+                                    "azCliVersion": "2.45.0",
+                                    "environmentVariables": [
+                                        {
+                                            "name": "RESOURCE_GROUP",
+                                            "value": "[resourceGroup().name]"
+                                        },
+                                        {
+                                            "name": "STORAGE_ACCOUNT_NAME",
+                                            "value": "[parameters('storageAccountName')]"
+                                        },
+                                        {
+                                            "name": "CLIENT_ID",
+                                            "value": "[parameters('spClientId')]"
+                                        },
+                                        {
+                                            "name": "CLIENT_SECRET",
+                                            "secureValue": "[parameters('spClientSecret')]"
+                                        },
+                                        {
+                                            "name": "TENANT_ID",
+                                            "value": "[subscription().tenantId]"
+                                        },
+                                        {
+                                            "name": "SUBSCRIPTION_ID",
+                                            "value": "[subscription().id]"
+                                        },
+                                        {
+                                            "name": "API_SERVER",
+                                            "value": "[parameters('apiServer')]"
+                                        },
+                                        {
+                                            "name": "OCP_USERNAME",
+                                            "value": "[parameters('ocpUsername')]"
+                                        },
+                                        {
+                                            "name": "OCP_PASSWORD",
+                                            "secureValue": "[parameters('ocpPassword')]"
+                                        },
+                                        {
+                                            "name": "FILE_TYPE",
+                                            "value": "[parameters('fileType')]"
+                                        }
+                                    ],
+                                    "primaryScriptUri": "[uri(variables('baseUrl'),'openshift/ipi/scripts/az-files.sh')]",
+                                    "timeout": "PT30M",
+                                    "cleanupPreference": "OnSuccess",
+                                    "retentionInterval": "P1D"
+                                },
+                                "dependsOn": [
+                                    "[resourceId('Microsoft.Authorization/roleAssignments', variables('storageAccountAssignment'))]",
+                                    "[resourceId('Microsoft.Network/privateEndpoints', parameters('privateStorageEndpointName'))]"
+                                ]
+                            }
+                        ],
+                        "outputs": {}
                 }
             }
         }
