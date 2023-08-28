@@ -24,7 +24,7 @@ mkdir -p ${TMP_DIR}
 ENV_VAR_NOT_SET=""
 
 if [[ -z $API_SERVER ]]; then ENV_VAR_NOT_SET="API_SERVER"; fi
-if [[ -z $OCP_USERNAME ]]; then ENV_VAR_NOT_SET="OCP_USERNAME": fi
+if [[ -z $OCP_USERNAME ]]; then ENV_VAR_NOT_SET="OCP_USERNAME"; fi
 if [[ -z $OCP_PASSWORD ]]; then ENV_VAR_NOT_SET="OCP_PASSWORD"; fi
 if [[ -z $RESOURCE_GROUP ]]; then ENV_VAR_NOT_SET="RESOURCE_GROUP"; fi
 
