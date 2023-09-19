@@ -74,7 +74,7 @@
 						"bastionSubnet": {
 							"label": "Bastion Subnet",
 							"defaultValue": {
-								"name": "AzureBastionSubnet",
+								"name": "bastion-subnet",
 								"addressPrefixSize": "/24"
 							},
 							"constraints": {
@@ -557,7 +557,7 @@
 						  "required": true,
 						  "validations": [
 							{
-							  "regex": "^[a-z_]+[a-z0-9A-Z_]{3,10}$",
+							  "regex": "^[a-z_]+[a-z0-9A-Z_]{2,10}$",
 							  "message": "Name must begin with a lowercase letter. Subsequent characters can be letters, numbers or underscores. Must be between 3 and 10 characters in length."
 							}
 						  ]
@@ -688,7 +688,7 @@
 			"dbStorageSizeGB": "[steps('database').dbStorageSizeGB]",
 			"dbHAMode": "[steps('database').dbHAMode]",
 			"backupRetentionDays": "[steps('database').backupRetentionDays]",
-			"geoRedundantBackup": "[if(equals(steps('database').geoRedundantBackup,'true'),'enabled','disabled')]"
+			"geoRedundantBackup": "[if(equals(steps('database').geoRedundantBackup,true),'enabled','disabled')]"
          }
     }
 }
