@@ -41,7 +41,7 @@ CLUSTER_NAME="$(az deployment group show -g $RESOURCE_GROUP -n deploy-ocp-ipi --
 CLUSTER_ID="$(az deployment group show -g $RESOURCE_GROUP -n deploy-ocp-ipi --query 'properties.outputs.clusterId.value' -o tsv)"
 INFRA_ID="$(az deployment group show -g $RESOURCE_GROUP -n deploy-ocp-ipi --query 'properties.outputs.infraId.value' -o tsv)"
 BASE_DOMAIN_RG="$(az deployment group show -g $RESOURCE_GROUP -n deploy-ocp-ipi --query 'properties.parameters.baseDomainRG.value' -o tsv)"
-LOCATION="az group show -g $RESOURCE_GROUP --query 'location' -o tsv"
+LOCATION="$(az group show -g $RESOURCE_GROUP --query 'location' -o tsv)"
 
 # If not already, install the openshift-install tool
 
