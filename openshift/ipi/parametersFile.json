@@ -1,0 +1,72 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "deployPrereqs": {
+      "value": true
+    },
+    "deployVNet": {
+      "value": true
+    },
+    "deployKeyVault": {
+      "value": true
+    },
+    "deployAzureFile": {
+      "value": true
+    },
+    "deployOCP": {
+      "value": true
+    },
+    "masterNodeSize": {
+      "value": "Standard_D8s_v3"
+    },
+    "workerNodeSize": {
+      "value": "Standard_D4s_v3"
+    },
+    "workerNodeQty": {
+      "value": 3
+    },
+    "ocpVersion": {
+      "value": "4.10"
+    },
+    "publicSshKey": {
+      "value": ""
+    },
+    "vnetName": {
+      "value": "vnet"
+    },
+    "vnetCIDR": {
+      "value": "10.0.0.0/20"
+    },
+    "controlSubnetCIDR": {
+      "value": "10.0.0.0/24"
+    },
+    "controlSubnetName": {
+      "value": "control-subnet"
+    },
+    "workerSubnetCIDR": {
+      "value": "10.0.1.0/24"
+    },
+    "workerSubnetName": {
+      "value": "worker-subnet"
+    },
+    "storageSubnetName": {
+      "value": "storage-subnet"
+    },
+    "storageSubnetCIDR": {
+      "value": "10.0.2.0/24"
+    },
+    "fileStorageType": {
+      "value": "Premium_LRS"
+    },
+    "fileStorageEndpointName": {
+      "value": "ocp-storage"
+    },
+    "fileStorageSuffix": {
+      "value": "core.windows.net"
+    },
+    "branch": {
+      "value": "main"
+    }
+  }
+}
