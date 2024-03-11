@@ -1,0 +1,462 @@
+{
+    "streamType": "cluster",
+    "configuration": {
+        "lastChanged": -549755813888,
+        "lastEditedBy": 998,
+        "irisInstances": [
+            {
+                "id": 1,
+                "uid": 801,
+                "name": "IBM Safer Payments 1",
+                "comment": "This is IBM Safer Payments instance 1. Feel free to rename the IBM Safer Payments instance and change this comment to your needs.",
+                "enabledForSimulation": true,
+                "detached": false,
+                "directories": {
+                    "arcPath": "INSTANCE_DIR/arc",
+                    "cfgPath": "INSTANCE_DIR/cfg",
+                    "ddcPath": "INSTANCE_DIR/ddc",
+                    "emlPath": "INSTANCE_DIR/eml",
+                    "fliPath": "INSTANCE_DIR/fli",
+                    "incPath": "INSTANCE_DIR/inc",
+                    "invPath": "INSTANCE_DIR/inv",
+                    "keyPath": "INSTANCE_DIR/key",
+                    "kpiPath": "INSTANCE_DIR/kpi",
+                    "logPath": "INSTANCE_DIR/log",
+                    "repPath": "INSTANCE_DIR/rep",
+                    "saiPath": "INSTANCE_DIR/sai",
+                    "usrPath": "INSTANCE_DIR/usr",
+                    "pwsPath": "INSTANCE_DIR/pws"
+                },
+                "interfaces": [
+                    {
+                        "type": "MessageCommandInterface",
+                        "enabled": false,
+                        "bypassSettings": {
+                            "enabled": false,
+                            "instanceUids": [],
+                            "ssl": {
+                                "useSsl": false,
+                                "verifyServerCertificate": true,
+                                "certificatePath": "",
+                                "revokedServersCrlFile": "",
+                                "useClientCertificate": false,
+                                "clientCertificatePath": "",
+                                "clientCertificateKeyPath": "",
+                                "clientCertificateKeyType": "Unencrypted",
+                                "clientCertificateKeyPasswordPath": "",
+                                "clientCertificatePassword": ""
+                            }
+                        },
+                        "endpoints": []
+                    },
+                    {
+                        "type": "ApplicationProgrammingInterface",
+                        "address": "NODE1_IP",
+                        "port": 8001,
+                        "enabled": true,
+                        "acceptAll": true,
+                        "acceptFrom": [],
+                        "useBasename": false,
+                        "basename": "",
+                        "enabledSsl": false,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "BatchDataInterface",
+                        "enabled": true
+                    },
+                    {
+                        "type": "FastLinkInterface",
+                        "address": "NODE1_IP",
+                        "port": 27921,
+                        "enabled": true
+                    },
+                    {
+                        "type": "StatusControlInterface",
+                        "address": "NODE1_IP",
+                        "port": 27931
+                    },
+                    {
+                        "type": "EncryptedCommunicationInterface",
+                        "address": "127.0.0.1",
+                        "port": 27941,
+                        "enabled": false,
+                        "enabledSsl": true,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "AlertMessageInterface",
+                        "enabled": true,
+                        "occFileEnabled": false,
+                        "occHttpMessageEnabled": false,
+                        "occMessageEnabled": false,
+                        "occOdbcSqlEnabled": false,
+                        "occSmtpEnabled": false,
+                        "occKafkaEnabled": false
+                    },
+                    {
+                        "type": "WebSphereMQInterface",
+                        "enabled": false,
+                        "queueManagers": []
+                    },
+                    {
+                        "type": "KafkaMessageInterface",
+                        "enabled": false,
+                        "kafkaEndpoints": []
+                    }
+                ],
+                "monitoringDirectories": {
+                    "euslPath": "",
+                    "ofacPath": "",
+                    "unPath": "",
+                    "globalWatchListPath": "",
+                    "pepPath": "",
+                    "ruslPath": ""
+                },
+                "extendedLogDirectories": {
+                    "garante2Path": "",
+                    "gdprPath": "",
+                    "configurationChangeJournalPath": ""
+                }
+            },
+            {
+                "id": 2,
+                "uid": 802,
+                "name": "IBM Safer Payments 2",
+                "comment": "This is IBM Safer Payments instance 2. Feel free to rename the IBM Safer Payments instance and change this comment to your needs.",
+                "enabledForSimulation": false,
+                "detached": false,
+                "directories": {
+                    "arcPath": "INSTANCE_DIR/arc",
+                    "cfgPath": "INSTANCE_DIR/cfg",
+                    "ddcPath": "INSTANCE_DIR/ddc",
+                    "emlPath": "INSTANCE_DIR/eml",
+                    "fliPath": "INSTANCE_DIR/fli",
+                    "incPath": "INSTANCE_DIR/inc",
+                    "invPath": "INSTANCE_DIR/inv",
+                    "keyPath": "INSTANCE_DIR/key",
+                    "kpiPath": "INSTANCE_DIR/kpi",
+                    "logPath": "INSTANCE_DIR/log",
+                    "repPath": "INSTANCE_DIR/rep",
+                    "saiPath": "INSTANCE_DIR/sai",
+                    "usrPath": "INSTANCE_DIR/usr",
+                    "pwsPath": "INSTANCE_DIR/pws"
+                },
+                "interfaces": [
+                    {
+                        "type": "MessageCommandInterface",
+                        "enabled": false,
+                        "bypassSettings": {
+                            "enabled": false,
+                            "instanceUids": [],
+                            "ssl": {
+                                "useSsl": false,
+                                "verifyServerCertificate": true,
+                                "certificatePath": "",
+                                "revokedServersCrlFile": "",
+                                "useClientCertificate": false,
+                                "clientCertificatePath": "",
+                                "clientCertificateKeyPath": "",
+                                "clientCertificateKeyType": "Unencrypted",
+                                "clientCertificateKeyPasswordPath": "",
+                                "clientCertificatePassword": ""
+                            }
+                        },
+                        "endpoints": []
+                    },
+                    {
+                        "type": "ApplicationProgrammingInterface",
+                        "address": "NODE2_IP",
+                        "port": 8002,
+                        "enabled": false,
+                        "acceptAll": true,
+                        "acceptFrom": [],
+                        "useBasename": false,
+                        "basename": "",
+                        "enabledSsl": false,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "BatchDataInterface",
+                        "enabled": false
+                    },
+                    {
+                        "type": "FastLinkInterface",
+                        "address": "NODE2_IP",
+                        "port": 27922,
+                        "enabled": true
+                    },
+                    {
+                        "type": "StatusControlInterface",
+                        "address": "NODE2_IP",
+                        "port": 27932
+                    },
+                    {
+                        "type": "EncryptedCommunicationInterface",
+                        "address": "NODE2_IP",
+                        "port": 27942,
+                        "enabled": false,
+                        "enabledSsl": true,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "AlertMessageInterface",
+                        "enabled": true,
+                        "occFileEnabled": false,
+                        "occHttpMessageEnabled": false,
+                        "occMessageEnabled": false,
+                        "occOdbcSqlEnabled": false,
+                        "occSmtpEnabled": false,
+                        "occKafkaEnabled": false
+                    },
+                    {
+                        "type": "WebSphereMQInterface",
+                        "enabled": false,
+                        "queueManagers": []
+                    },
+                    {
+                        "type": "KafkaMessageInterface",
+                        "enabled": false,
+                        "kafkaEndpoints": []
+                    }
+                ],
+                "monitoringDirectories": {
+                    "euslPath": "",
+                    "ofacPath": "",
+                    "unPath": "",
+                    "globalWatchListPath": "",
+                    "pepPath": "",
+                    "ruslPath": ""
+                },
+                "extendedLogDirectories": {
+                    "garante2Path": "",
+                    "gdprPath": "",
+                    "configurationChangeJournalPath": ""
+                }
+            },
+            {
+                "id": 3,
+                "uid": 803,
+                "name": "IBM Safer Payments 3",
+                "comment": "This is IBM Safer Payments instance 3. Feel free to rename the IBM Safer Payments instance and change this comment to your needs.",
+                "enabledForSimulation": false,
+                "detached": false,
+                "directories": {
+                    "arcPath": "INSTANCE_DIR/arc",
+                    "cfgPath": "INSTANCE_DIR/cfg",
+                    "ddcPath": "INSTANCE_DIR/ddc",
+                    "emlPath": "INSTANCE_DIR/eml",
+                    "fliPath": "INSTANCE_DIR/fli",
+                    "incPath": "INSTANCE_DIR/inc",
+                    "invPath": "INSTANCE_DIR/inv",
+                    "keyPath": "INSTANCE_DIR/key",
+                    "kpiPath": "INSTANCE_DIR/kpi",
+                    "logPath": "INSTANCE_DIR/log",
+                    "repPath": "INSTANCE_DIR/rep",
+                    "saiPath": "INSTANCE_DIR/sai",
+                    "usrPath": "INSTANCE_DIR/usr",
+                    "pwsPath": "INSTANCE_DIR/pws"
+                },
+                "interfaces": [
+                    {
+                        "type": "MessageCommandInterface",
+                        "enabled": false,
+                        "bypassSettings": {
+                            "enabled": false,
+                            "instanceUids": [],
+                            "ssl": {
+                                "useSsl": false,
+                                "verifyServerCertificate": true,
+                                "certificatePath": "",
+                                "revokedServersCrlFile": "",
+                                "useClientCertificate": false,
+                                "clientCertificatePath": "",
+                                "clientCertificateKeyPath": "",
+                                "clientCertificateKeyType": "Unencrypted",
+                                "clientCertificateKeyPasswordPath": "",
+                                "clientCertificatePassword": ""
+                            }
+                        },
+                        "endpoints": []
+                    },
+                    {
+                        "type": "ApplicationProgrammingInterface",
+                        "address": "NODE3_IP",
+                        "port": 8003,
+                        "enabled": false,
+                        "acceptAll": true,
+                        "acceptFrom": [],
+                        "useBasename": false,
+                        "basename": "",
+                        "enabledSsl": false,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "BatchDataInterface",
+                        "enabled": false
+                    },
+                    {
+                        "type": "FastLinkInterface",
+                        "address": "NODE3_IP",
+                        "port": 27923,
+                        "enabled": true
+                    },
+                    {
+                        "type": "StatusControlInterface",
+                        "address": "NODE3_IP",
+                        "port": 27933
+                    },
+                    {
+                        "type": "EncryptedCommunicationInterface",
+                        "address": "NODE3_IP",
+                        "port": 27943,
+                        "enabled": false,
+                        "enabledSsl": true,
+                        "certificateFile": "INSTANCE_DIR/key/server.pem",
+                        "privateKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "diffieHellmanFile": "INSTANCE_DIR/key/dh512.pem",
+                        "privateKeyType": "PasswordFile",
+                        "privateKeyPasswordFile": "INSTANCE_DIR/key/private.pwd",
+                        "rejectTls10": false,
+                        "rejectTls11": false,
+                        "clientCertificateFile": "INSTANCE_DIR/key/server.pem",
+                        "clientAuthorizationCertificateFile": "INSTANCE_DIR/key/ca.pem",
+                        "privateClientKeyFile": "INSTANCE_DIR/key/server.pem",
+                        "privateClientKeyType": "None",
+                        "privateClientKeyPasswordFile": "",
+                        "serverAuthorizationCertificateFile": "",
+                        "requireValidClientCertificate": false,
+                        "requireFittingCommonName": false,
+                        "validCommonNames": [],
+                        "requireValidServerCertificate": false,
+                        "revokedServersCrlFile": "",
+                        "revokedClientsCrlFile": ""
+                    },
+                    {
+                        "type": "AlertMessageInterface",
+                        "enabled": true,
+                        "occFileEnabled": false,
+                        "occHttpMessageEnabled": false,
+                        "occMessageEnabled": false,
+                        "occOdbcSqlEnabled": false,
+                        "occSmtpEnabled": false,
+                        "occKafkaEnabled": false
+                    },
+                    {
+                        "type": "WebSphereMQInterface",
+                        "enabled": false,
+                        "queueManagers": []
+                    },
+                    {
+                        "type": "KafkaMessageInterface",
+                        "enabled": false,
+                        "kafkaEndpoints": []
+                    }
+                ],
+                "monitoringDirectories": {
+                    "euslPath": "",
+                    "ofacPath": "",
+                    "unPath": "",
+                    "globalWatchListPath": "",
+                    "pepPath": "",
+                    "ruslPath": ""
+                },
+                "extendedLogDirectories": {
+                    "garante2Path": "",
+                    "gdprPath": "",
+                    "configurationChangeJournalPath": ""
+                }
+            }
+        ]
+    }
+}
