@@ -18,7 +18,7 @@ Deploys the following resources:
 
 To deploy this template, click on the `Deploy to Azure` button above. This will bring up a custom deployment screen in Azure once you login.
 
-![Custom Deployment Parameters](./images/test-container-ui-01.png)
+![Custom Deployment Parameters](./images/test-container-ui-02.png)
 
 The key parameters to change are as follows.
 
